@@ -11,6 +11,16 @@ public class FirstPersonMovement : MonoBehaviour
     [SerializeField] private CharacterController characterController;
     [SerializeField] private Transform movementTransform;
 
+    [Header("Animation")]
+    [SerializeField] private Animator animator;
+    [SerializeField] private string speedParameter = "Speed";
+    [SerializeField] private string groundedParameter = "Grounded";
+    [SerializeField] private string jumpTrigger = "Jump";
+    [SerializeField] private float speedDampTime = 0.1f;
+    [SerializeField] private bool driveAnimator = true;
+    [SerializeField] private bool useNormalizedSpeed = true;
+    [SerializeField] private float normalizedSpeedMax = 5.5f;
+
     [Header("Jump & Gravity")]
     [SerializeField] private float jumpHeight = 1.1f;
     [SerializeField] private float gravity = -19.62f;
@@ -28,6 +38,7 @@ public class FirstPersonMovement : MonoBehaviour
     private void Awake()
     {
         ResolveCharacterController();
+        ResolveAnimator();
 
         if (characterController == null)
         {
@@ -50,6 +61,7 @@ public class FirstPersonMovement : MonoBehaviour
     private void OnValidate()
     {
         ResolveCharacterController();
+        ResolveAnimator();
 
         if (characterController == null)
         {
@@ -76,6 +88,7 @@ public class FirstPersonMovement : MonoBehaviour
         bool jumpPressed = IsJumpPressed();
 
         MoveCharacter(moveInput, sprintPressed, jumpPressed);
+        UpdateAnimator(moveInput, sprintPressed, jumpPressed);
     }
 
     private void MoveCharacter(Vector2 moveInput, bool sprintPressed, bool jumpPressed)
@@ -153,6 +166,57 @@ public class FirstPersonMovement : MonoBehaviour
         }
 
         return Input.GetKeyDown(KeyCode.Space);
+    }
+
+    private void ResolveAnimator()
+    {
+        if (animator != null)
+        {
+            return;
+        }
+
+        animator = GetComponent<Animator>();
+
+        if (animator == null)
+        {
+            animator = GetComponentInChildren<Animator>();
+        }
+    }
+
+    private void UpdateAnimator(Vector2 moveInput, bool sprintPressed, bool jumpPressed)
+    {
+        if (!driveAnimator || animator == null)
+        {
+            return;
+        }
+
+        float targetSpeed = moveInput.sqrMagnitude > 0f ? (sprintPressed ? sprintSpeed : walkSpeed) : 0f;
+
+        if (characterController != null)
+        {
+            Vector3 planarVelocity = characterController.velocity;
+            planarVelocity.y = 0f;
+            if (planarVelocity.sqrMagnitude > 0.0001f || moveInput.sqrMagnitude <= 0.001f)
+            {
+                targetSpeed = planarVelocity.magnitude;
+            }
+
+            animator.SetBool(groundedParameter, characterController.isGrounded);
+
+            if (jumpPressed && characterController.isGrounded)
+            {
+                animator.SetTrigger(jumpTrigger);
+            }
+        }
+
+        float speedToSet = targetSpeed;
+        if (useNormalizedSpeed)
+        {
+            float maxSpeed = normalizedSpeedMax > 0f ? normalizedSpeedMax : sprintSpeed;
+            speedToSet = maxSpeed > 0f ? Mathf.Clamp01(targetSpeed / maxSpeed) : 0f;
+        }
+
+        animator.SetFloat(speedParameter, speedToSet, speedDampTime, Time.deltaTime);
     }
 
     private void ResolveCharacterController()

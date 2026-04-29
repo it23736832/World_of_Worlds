@@ -11,7 +11,10 @@ public class cameraControll : MonoBehaviour
     [SerializeField] private float maxTurnDegreesPerFrame = 2.5f;
     [SerializeField] private float maxLookAngle = 85f;
     [SerializeField] private bool lockCursorOnStart = true;
-    [SerializeField] private bool keepCameraCenteredOnPlayer = true;
+    [SerializeField] private bool useThirdPersonOffset = true;
+
+    [Header("Third Person")]
+    [SerializeField] private Vector3 cameraLocalOffset = new Vector3(0f, 1.8f, -3.5f);
 
     private float xRotation;
 
@@ -20,6 +23,11 @@ public class cameraControll : MonoBehaviour
         if (transform.parent != null)
         {
             playerBody = transform.parent;
+        }
+
+        if (useThirdPersonOffset)
+        {
+            transform.localPosition = cameraLocalOffset;
         }
 
         if (lockCursorOnStart)
@@ -38,15 +46,22 @@ public class cameraControll : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (!keepCameraCenteredOnPlayer || playerBody == null || transform.parent != playerBody)
+        if (playerBody == null || transform.parent != playerBody)
         {
             return;
         }
 
-        Vector3 localPos = transform.localPosition;
-        localPos.x = 0f;
-        localPos.z = 0f;
-        transform.localPosition = localPos;
+        if (useThirdPersonOffset)
+        {
+            transform.localPosition = cameraLocalOffset;
+        }
+        else
+        {
+            Vector3 localPos = transform.localPosition;
+            localPos.x = 0f;
+            localPos.z = 0f;
+            transform.localPosition = localPos;
+        }
     }
 
     private Vector2 ReadLookInput()

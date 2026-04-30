@@ -56,6 +56,28 @@ public class FirstPersonMovement : MonoBehaviour
         {
             ApplyControllerShape();
         }
+
+        // Enforce Player tag so door triggers and portals work reliably
+        if (!CompareTag("Player"))
+        {
+            try { gameObject.tag = "Player"; } catch { }
+        }
+
+        // Defensive checks to prevent falling through floor
+        Rigidbody rb = GetComponent<Rigidbody>();
+        if (rb != null && !rb.isKinematic)
+        {
+            Debug.LogWarning("Player has a non-kinematic Rigidbody which conflicts with CharacterController! Setting to kinematic.");
+            rb.isKinematic = true;
+        }
+
+        // Teleport slightly up to avoid spawning exactly inside the floor collider
+        if (characterController != null)
+        {
+            characterController.enabled = false;
+            transform.position += Vector3.up * 1.5f; // Move up significantly to ensure we clear the floor
+            characterController.enabled = true;
+        }
     }
 
     private void OnValidate()
@@ -109,10 +131,17 @@ public class FirstPersonMovement : MonoBehaviour
         Vector3 forward = Vector3.ProjectOnPlane(moveBasis.forward, Vector3.up).normalized;
         Vector3 move = right * moveInput.x + forward * moveInput.y;
 
-        characterController.Move(move * speed * Time.deltaTime);
+        // Cap delta time to prevent tunneling through the floor during lag spikes or scene loading
+        float dt = Mathf.Min(Time.deltaTime, 0.1f);
 
-        verticalVelocity += gravity * Time.deltaTime;
-        characterController.Move(Vector3.up * verticalVelocity * Time.deltaTime);
+        characterController.Move(move * speed * dt);
+
+        verticalVelocity += gravity * dt;
+        
+        // Cap maximum fall speed to terminal velocity to prevent tunneling
+        verticalVelocity = Mathf.Max(verticalVelocity, -50f);
+        
+        characterController.Move(Vector3.up * verticalVelocity * dt);
     }
 
     private static Vector2 ReadMoveInput()

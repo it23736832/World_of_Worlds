@@ -13,6 +13,16 @@ public class ScenePortal : MonoBehaviour
 
     private bool isLoading = false;
 
+    private void Awake()
+    {
+        Collider col = GetComponent<Collider>();
+        if (col != null && !col.isTrigger)
+        {
+            Debug.LogWarning($"Portal '{gameObject.name}' has a collider but 'Is Trigger' is false. Automatically fixing it so the portal works.");
+            col.isTrigger = true;
+        }
+    }
+
     private void OnTriggerEnter(Collider other)
     {
         // Prevent loading multiple times if the player collides with multiple parts of the trigger

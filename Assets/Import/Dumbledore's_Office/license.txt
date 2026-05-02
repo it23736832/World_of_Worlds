@@ -1,0 +1,11 @@
+Model Information:
+* title:	Dumbledore's Office
+* source:	https://sketchfab.com/3d-models/dumbledores-office-c5fdffa78c9442bb93a88c386d4ad53d
+* author:	zack_graham (https://sketchfab.com/zack_graham)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Dumbledore's Office" (https://sketchfab.com/3d-models/dumbledores-office-c5fdffa78c9442bb93a88c386d4ad53d) by zack_graham (https://sketchfab.com/zack_graham) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

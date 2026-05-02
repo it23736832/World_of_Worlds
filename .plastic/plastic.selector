@@ -1,0 +1,4 @@
+repository "My project 2/OmniVerse_X@18968380178856@cloud"
+  path "/"
+    br "/main"
+    co "/main"

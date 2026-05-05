@@ -44,6 +44,13 @@ sysinfo.txt
 # Package manager / tooling caches
 .nuget/
 
+# Unity crash log
+crash.log
+crash.sln
+
+# Addressables built data
+/[Aa]ssets/[Ss]treamingAssets/aa/
+
 # OS files
 .DS_Store
 .DS_Store?

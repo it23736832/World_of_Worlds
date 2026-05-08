@@ -1,0 +1,11 @@
+Model Information:
+* title:	Dead Trees
+* source:	https://sketchfab.com/3d-models/dead-trees-ba9f6c8220aa4a91a599340e38f13a76
+* author:	Quadra3D (https://sketchfab.com/Quadra3D)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Dead Trees" (https://sketchfab.com/3d-models/dead-trees-ba9f6c8220aa4a91a599340e38f13a76) by Quadra3D (https://sketchfab.com/Quadra3D) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

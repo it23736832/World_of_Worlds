@@ -2,14 +2,9 @@ using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
 
-[InitializeOnLoad]
 public class FixPlayerAnimations
 {
-    static FixPlayerAnimations()
-    {
-        EditorApplication.delayCall += Run;
-    }
-
+    [MenuItem("Tools/Abandoned Asylum/Fix Player Animations")]
     static void Run()
     {
         string controllerPath = "Assets/Abandoned_Asylum/animations/PlayerLocomotion.controller";

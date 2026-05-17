@@ -3,25 +3,9 @@ using UnityEditor;
 using UnityEditor.Animations;
 using System.IO;
 
-[InitializeOnLoad]
 public class AutoCreateDoorAnimations
 {
-    static AutoCreateDoorAnimations()
-    {
-        EditorApplication.delayCall += RunOnce;
-    }
-
-    static void RunOnce()
-    {
-        string flagPath = "Assets/Editor/DoorAnimationsCreated.flag";
-        if (File.Exists(flagPath)) return;
-
-        CreateAnimations();
-
-        File.WriteAllText(flagPath, "done");
-        AssetDatabase.Refresh();
-    }
-
+    [MenuItem("Tools/Abandoned Asylum/Create Door Animations")]
     public static void CreateAnimations()
     {
         string folderPath = "Assets/Abandoned_Asylum/Animations";

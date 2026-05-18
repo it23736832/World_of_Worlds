@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 public class DoorTrigger : MonoBehaviour
 {
@@ -9,14 +8,15 @@ public class DoorTrigger : MonoBehaviour
     [SerializeField] private string closeTriggerName = "Close";
 
     [Header("Player Animation")]
-    [SerializeField] private string playerOpenTrigger = "OpenDoor";  // trigger on RUMI's Animator
+    [SerializeField] private string playerOpenTrigger = "OpenDoor";
 
     [Header("Interaction")]
-    [SerializeField] private string playerTag     = "Player";
+    [SerializeField] private string playerTag  = "Player";
+    [SerializeField] private string villainTag = "Villain";
     [SerializeField] private GameObject interactPrompt;
 
-    private bool _playerInRange  = false;
-    private bool _isOpen         = false;
+    private int _charactersInRange = 0;
+    private bool _isOpen           = false;
     private Animator _playerAnimator;
 
     private void Awake()
@@ -25,37 +25,38 @@ public class DoorTrigger : MonoBehaviour
             doorAnimator = GetComponentInParent<Animator>();
     }
 
-    private void Update()
-    {
-        if (!_playerInRange) return;
-        if (!IsInteractPressed()) return;
-
-        if (_isOpen)
-            CloseDoor();
-        else
-            OpenDoor();
-    }
-
     private void OnTriggerEnter(Collider other)
     {
-        if (!other.CompareTag(playerTag)) return;
+        if (!other.CompareTag(playerTag) && !other.CompareTag(villainTag)) return;
 
-        _playerInRange   = true;
-        _playerAnimator  = other.GetComponentInChildren<Animator>();
+        _charactersInRange++;
 
-        if (interactPrompt != null)
-            interactPrompt.SetActive(true);
+        if (other.CompareTag(playerTag))
+        {
+            _playerAnimator = other.GetComponentInChildren<Animator>();
+            if (interactPrompt != null)
+                interactPrompt.SetActive(true);
+        }
+
+        if (!_isOpen)
+            OpenDoor();
     }
 
     private void OnTriggerExit(Collider other)
     {
-        if (!other.CompareTag(playerTag)) return;
+        if (!other.CompareTag(playerTag) && !other.CompareTag(villainTag)) return;
 
-        _playerInRange  = false;
-        _playerAnimator = null;
+        _charactersInRange = Mathf.Max(0, _charactersInRange - 1);
 
-        if (interactPrompt != null)
-            interactPrompt.SetActive(false);
+        if (other.CompareTag(playerTag))
+        {
+            _playerAnimator = null;
+            if (interactPrompt != null)
+                interactPrompt.SetActive(false);
+        }
+
+        if (_charactersInRange == 0 && _isOpen)
+            CloseDoor();
     }
 
     private void OpenDoor()
@@ -68,7 +69,6 @@ public class DoorTrigger : MonoBehaviour
 
         doorAnimator.SetTrigger(openTriggerName);
 
-        // Play RUMI's door-open animation if the trigger name is set.
         if (_playerAnimator != null && !string.IsNullOrEmpty(playerOpenTrigger))
             _playerAnimator.SetTrigger(playerOpenTrigger);
 
@@ -81,13 +81,5 @@ public class DoorTrigger : MonoBehaviour
 
         doorAnimator.SetTrigger(closeTriggerName);
         _isOpen = false;
-    }
-
-    private static bool IsInteractPressed()
-    {
-        if (Keyboard.current != null)
-            return Keyboard.current.eKey.wasPressedThisFrame;
-
-        return Input.GetKeyDown(KeyCode.E);
     }
 }

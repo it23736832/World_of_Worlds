@@ -31,8 +31,9 @@ public class ThirdPersonCamera : MonoBehaviour
     [SerializeField] private float followSmoothTime = 0.08f;
 
     [Header("Wall Collision")]
-    [SerializeField] private float collisionRadius  = 0.2f;   // sphere size for wall check
-    [SerializeField] private LayerMask collisionMask = ~0;    // everything by default
+    [SerializeField] private float collisionRadius = 0.2f;
+    [Tooltip("Assign every layer EXCEPT the Player layer. Excluding the player prevents the camera from being pulled inside RUMI's own mesh.")]
+    [SerializeField] private LayerMask collisionMask = ~0;
 
     private float _yaw;
     private float _pitch;

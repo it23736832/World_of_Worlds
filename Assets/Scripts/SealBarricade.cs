@@ -4,7 +4,8 @@ using UnityEngine.AI;
 
 public class SealBarricade : MonoBehaviour
 {
-    [SerializeField] private float _duration = 60f;
+    [SerializeField] private float _duration       = 60f;
+    [SerializeField] private float _animationSpeed = 0.3f;  // 1 = normal, 0.3 = slow
 
     private NavMeshObstacle _obstacle;
     private Animator        _animator;
@@ -22,7 +23,10 @@ public class SealBarricade : MonoBehaviour
         }
 
         if (_animator != null)
-            _loopCoroutine = StartCoroutine(LoopStartAnimation());
+        {
+            _animator.speed  = _animationSpeed;
+            _loopCoroutine   = StartCoroutine(LoopStartAnimation());
+        }
 
         StartCoroutine(ExpireRoutine());
     }
@@ -55,7 +59,10 @@ public class SealBarricade : MonoBehaviour
             StopCoroutine(_loopCoroutine);
 
         if (_animator != null)
+        {
+            _animator.speed = 1f;
             _animator.Play("WaterSpellFinish", 0, 0f);
+        }
 
         if (_obstacle != null)
             _obstacle.enabled = false;

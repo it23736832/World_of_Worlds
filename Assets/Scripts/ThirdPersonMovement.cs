@@ -20,7 +20,7 @@ public class ThirdPersonMovement : MonoBehaviour
     [SerializeField] private float    animatorDampTime = 0.1f;
 
     [Header("Camera")]
-    [Tooltip("Assign the CameraFollowTarget child object. Falls back to Camera.main if left empty.")]
+    [Tooltip("Assign the camera_pivot child. Its rotation is controlled by CameraFollowTarget.cs — this field is read-only for movement direction.")]
     [SerializeField] private Transform cameraFollowTarget;
 
     private CharacterController _controller;
@@ -45,8 +45,8 @@ public class ThirdPersonMovement : MonoBehaviour
     {
         ApplyGravity();
 
-        Vector2 input    = ReadMoveInput();
-        bool    moving   = input.sqrMagnitude > 0.01f;
+        Vector2 input     = ReadMoveInput();
+        bool    moving    = input.sqrMagnitude > 0.01f;
         bool    sprinting = moving && IsSprinting();
 
         if (moving)

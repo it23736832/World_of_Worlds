@@ -20,6 +20,13 @@ public class VillainChase : MonoBehaviour
     {
         _agent = GetComponent<NavMeshAgent>();
 
+        if (_player == null)
+        {
+            GameObject p = GameObject.FindWithTag("Player");
+            if (p != null) _player = p.transform;
+            else Debug.LogWarning("[VillainChase] No GameObject tagged 'Player' found.");
+        }
+
         foreach (Animator anim in GetComponentsInChildren<Animator>())
         {
             if (anim.runtimeAnimatorController != null)
@@ -43,9 +50,7 @@ public class VillainChase : MonoBehaviour
 
         if (_animator != null)
         {
-            bool isMoving = _agent.hasPath && !_agent.pathPending
-                            && _agent.remainingDistance > _agent.stoppingDistance;
-            float targetSpeed = isMoving ? 1f : 0f;
+            float targetSpeed = _agent.velocity.magnitude > 0.1f ? 1f : 0f;
             _animator.SetFloat("Speed", targetSpeed, 0.1f, Time.deltaTime);
         }
     }

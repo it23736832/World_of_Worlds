@@ -1,24 +1,33 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-/// <summary>
-/// Attach to an empty child of RUMI at eye/shoulder height.
-/// Cinemachine Virtual Camera's Follow and LookAt both point to this object.
-/// Mouse input rotates this object; Cinemachine reads the rotation to orbit around it.
-/// </summary>
 public class CameraFollowTarget : MonoBehaviour
 {
-    [SerializeField] private float rotationSpeed = 180f;
-    [SerializeField] private float minPitch      = -30f;
-    [SerializeField] private float maxPitch      =  60f;
+    [SerializeField] private Transform _character;
 
-    private float _pitch;
-    private float _yaw;
+    [Header("Auto Follow")]
+    [SerializeField] private float _yawSmoothSpeed  = 6f;   // how fast camera catches up to character facing
+    [SerializeField] private float _pitch           = 10f;  // fixed downward tilt (positive = looks down slightly)
+
+    [Header("Mouse Look (optional override)")]
+    [SerializeField] private bool  _allowMouseLook      = true;
+    [SerializeField] private float _mouseSensitivity    = 120f;
+    [SerializeField] private float _minPitch            = -20f;
+    [SerializeField] private float _maxPitch            =  40f;
+
+    private float _currentYaw;
+    private float _currentPitch;
 
     private void Start()
     {
-        _yaw   = transform.eulerAngles.y;
-        _pitch = transform.eulerAngles.x;
+        if (_character == null)
+        {
+            GameObject p = GameObject.FindWithTag("Player");
+            if (p != null) _character = p.transform;
+        }
+
+        _currentYaw   = _character != null ? _character.eulerAngles.y : transform.eulerAngles.y;
+        _currentPitch = _pitch;
 
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible   = false;
@@ -28,20 +37,27 @@ public class CameraFollowTarget : MonoBehaviour
     {
         HandleCursor();
         if (Cursor.lockState != CursorLockMode.Locked) return;
+        if (_character == null) return;
 
-        Vector2 delta = ReadMouseDelta();
-        _yaw   += delta.x * rotationSpeed * Time.deltaTime;
-        _pitch -= delta.y * rotationSpeed * Time.deltaTime;
-        _pitch  = Mathf.Clamp(_pitch, minPitch, maxPitch);
+        // Smoothly follow character's yaw
+        float targetYaw = _character.eulerAngles.y;
+        _currentYaw = Mathf.LerpAngle(_currentYaw, targetYaw, _yawSmoothSpeed * Time.deltaTime);
 
-        transform.rotation = Quaternion.Euler(_pitch, _yaw, 0f);
-    }
+        // Optional mouse pitch override
+        if (_allowMouseLook)
+        {
+            float mouseY = Mouse.current != null
+                ? Mouse.current.delta.ReadValue().y * 0.05f
+                : Input.GetAxis("Mouse Y");
+            _currentPitch -= mouseY * _mouseSensitivity * Time.deltaTime;
+            _currentPitch  = Mathf.Clamp(_currentPitch, _minPitch, _maxPitch);
+        }
+        else
+        {
+            _currentPitch = _pitch;
+        }
 
-    private static Vector2 ReadMouseDelta()
-    {
-        if (Mouse.current != null)
-            return Mouse.current.delta.ReadValue() * 0.05f;
-        return new Vector2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y"));
+        transform.rotation = Quaternion.Euler(_currentPitch, _currentYaw, 0f);
     }
 
     private static void HandleCursor()

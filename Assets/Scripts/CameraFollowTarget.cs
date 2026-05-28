@@ -6,15 +6,15 @@ public class CameraFollowTarget : MonoBehaviour
     [SerializeField] private Transform _character;
 
     [Header("Auto Follow")]
-    [SerializeField] private float _yawSmoothSpeed  = 14f;  // how fast camera catches up to character facing
-    [SerializeField] private float _pitch           = 12f;   // fixed downward tilt (positive = looks down slightly)
-    [SerializeField] private float _mouseFollowPause = 0.25f;
+    [SerializeField] private float _yawSmoothSpeed  = 4f;   // how fast camera catches up to character facing
+    [SerializeField] private float _pitch           = 12f;  // fixed downward tilt (positive = looks down slightly)
+    [SerializeField] private float _mouseFollowPause = 2f;  // seconds of no mouse input before auto-follow kicks in
 
     [Header("Mouse Look (optional override)")]
     [SerializeField] private bool  _allowMouseLook      = true;
     [SerializeField] private float _mouseSensitivity    = 220f;
-    [SerializeField] private float _minPitch            = -25f;
-    [SerializeField] private float _maxPitch            =  55f;
+    [SerializeField] private float _minPitch            = -40f;
+    [SerializeField] private float _maxPitch            =  70f;
 
     private float _currentYaw;
     private float _currentPitch;

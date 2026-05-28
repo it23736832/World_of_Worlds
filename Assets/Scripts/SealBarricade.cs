@@ -5,33 +5,65 @@ using UnityEngine.AI;
 public class SealBarricade : MonoBehaviour
 {
     [SerializeField] private float _duration       = 60f;
-    [SerializeField] private float _animationSpeed = 0.3f;  // 1 = normal, 0.3 = slow
+    [SerializeField] private float _animationSpeed = 0.3f;
 
     private NavMeshObstacle _obstacle;
     private Animator        _animator;
     private Coroutine       _loopCoroutine;
+    private NavMeshGraph    _graph;
+    private UCSVillainChase _villain;
 
     private void Start()
     {
         _obstacle = GetComponent<NavMeshObstacle>();
         _animator = GetComponent<Animator>();
+        _graph    = FindObjectOfType<NavMeshGraph>();
+        _villain  = FindObjectOfType<UCSVillainChase>();
 
         if (_obstacle != null)
         {
+            _obstacle.carvingTimeToStationary = 0f; // Carve immediately, no waiting
             _obstacle.carving = true;
             _obstacle.enabled = true;
         }
 
-        if (_animator != null)
+        // Let Rumi pass through — only Jinu should be physically blocked
+        GameObject player = GameObject.FindWithTag("Player");
+        if (player != null)
         {
-            _animator.speed  = _animationSpeed;
-            _loopCoroutine   = StartCoroutine(LoopStartAnimation());
+            Collider[] playerColliders = player.GetComponentsInChildren<Collider>(true);
+            Collider[] myColliders = GetComponentsInChildren<Collider>(true);
+            foreach (Collider pc in playerColliders)
+                foreach (Collider mc in myColliders)
+                    Physics.IgnoreCollision(pc, mc, true);
         }
 
+        if (_animator != null)
+        {
+            _animator.speed = _animationSpeed;
+            _loopCoroutine  = StartCoroutine(LoopStartAnimation());
+        }
+
+        StartCoroutine(RebuildAfterCarve());
         StartCoroutine(ExpireRoutine());
     }
 
-    // Replays WaterSpellStart every time it finishes so the seal stays animated
+    // Wait for Unity to apply the NavMesh carve, then rebuild the graph so UCS sees the blocked area
+    private IEnumerator RebuildAfterCarve()
+    {
+        yield return new WaitForSeconds(0.2f); // Give NavMesh time to finish carving
+
+        if (_graph == null)
+        {
+            Debug.LogWarning("[SealBarricade] No NavMeshGraph in scene — Jinu's path will not update.", this);
+            yield break;
+        }
+
+        _graph.BuildGraph();
+        _villain?.ForceRepath();
+        Debug.Log("[SealBarricade] NavMesh graph rebuilt after carve. Jinu must find a new route.", this);
+    }
+
     private IEnumerator LoopStartAnimation()
     {
         while (true)
@@ -39,7 +71,6 @@ public class SealBarricade : MonoBehaviour
             _animator.Play("WaterSpellStart", 0, 0f);
             yield return null;
 
-            // Wait until the clip finishes (normalizedTime reaches 1)
             AnimatorStateInfo state;
             do
             {
@@ -54,7 +85,6 @@ public class SealBarricade : MonoBehaviour
     {
         yield return new WaitForSeconds(_duration);
 
-        // Stop looping and play the finish animation
         if (_loopCoroutine != null)
             StopCoroutine(_loopCoroutine);
 
@@ -66,6 +96,16 @@ public class SealBarricade : MonoBehaviour
 
         if (_obstacle != null)
             _obstacle.enabled = false;
+
+        // Wait for the NavMesh to fully restore the carved area before rebuilding
+        yield return new WaitForSeconds(1.5f);
+
+        if (_graph != null)
+        {
+            _graph.BuildGraph();
+            _villain?.ForceRepath();
+            Debug.Log("[SealBarricade] Barricade expired, graph rebuilt. Jinu can recalculate route.", this);
+        }
 
         yield return new WaitForSeconds(1.5f);
         Destroy(gameObject);

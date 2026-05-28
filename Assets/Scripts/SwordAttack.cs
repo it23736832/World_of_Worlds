@@ -82,7 +82,6 @@ public class SwordAttack : MonoBehaviour
         if (_attackLayerIndex >= 0)
         {
             _animator.SetLayerWeight(_attackLayerIndex, 1f);
-            Debug.Log($"[SwordAttack] Layer weight set to 1 on layer {_attackLayerIndex}");
             _animator.CrossFadeInFixedTime(_slashState, _crossFadeDuration, _attackLayerIndex, 0f);
         }
         else
@@ -91,14 +90,13 @@ public class SwordAttack : MonoBehaviour
         }
 
         _animator.SetTrigger(_slashParam);
-        Debug.Log($"[SwordAttack] Trigger '{_slashParam}' set");
 
-        // Notify the villain to play RunToStop animation
-        AStarVillainChase villain = FindObjectOfType<AStarVillainChase>();
-        if (villain != null)
-        {
-            villain.OnPlayerSwordSwing();
-        }
+        // Spawn seal immediately so Jinu has to reroute right away
+        SpawnSeal();
+
+        // Notify villains for RunToStop reaction
+        FindObjectOfType<AStarVillainChase>()?.OnPlayerSwordSwing();
+        FindObjectOfType<UCSVillainChase>()?.OnPlayerSwordSwing();
 
         if (_attackLayerIndex >= 0)
         {
@@ -122,19 +120,31 @@ public class SwordAttack : MonoBehaviour
         }
 
         _slashing = false;
-        SpawnSeal();
     }
 
     private void SpawnSeal()
     {
-        if (_sealPrefab == null || _sealsRemaining <= 0) return;
+        if (_sealPrefab == null)
+        {
+            Debug.LogWarning("[SwordAttack] Seal Prefab not assigned — assign it in the Inspector.", this);
+            return;
+        }
+        if (_sealsRemaining <= 0)
+        {
+            Debug.Log("[SwordAttack] No seals remaining.");
+            return;
+        }
 
-        // Raycast down from a point in front of Rumi to find the floor
         Vector3 spawnOrigin = transform.position + transform.forward * _spawnDistance + Vector3.up * 1f;
         if (Physics.Raycast(spawnOrigin, Vector3.down, out RaycastHit hit, 3f, _floorMask))
         {
             Instantiate(_sealPrefab, hit.point, Quaternion.identity);
             _sealsRemaining--;
+            Debug.Log($"[SwordAttack] Seal spawned at {hit.point} ({_sealsRemaining} remaining).", this);
+        }
+        else
+        {
+            Debug.LogWarning($"[SwordAttack] Raycast missed — no floor found in front of Rumi. Check Floor Mask and spawn distance.", this);
         }
     }
 

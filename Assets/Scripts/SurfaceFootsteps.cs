@@ -27,8 +27,8 @@ public class SurfaceFootsteps : MonoBehaviour
     [Header("Timing")]
     [SerializeField] private FootstepTriggerMode triggerMode = FootstepTriggerMode.CharacterControllerDistance;
     [SerializeField] private float minMoveSpeed = 0.15f;
-    [SerializeField] private float walkStepDistance = 11f;
-    [SerializeField] private float sprintStepDistance = 9f;
+    [SerializeField] private float walkStepDistance = 7f;
+    [SerializeField] private float sprintStepDistance = 11f;
     [SerializeField, Range(0f, 1f)] private float firstStepDistanceMultiplier = 0.5f;
     [SerializeField] private float walkStepInterval = 1.6f;
     [SerializeField] private float sprintStepInterval = 0.65f;
@@ -36,8 +36,8 @@ public class SurfaceFootsteps : MonoBehaviour
     [SerializeField] private float sprintStartSpeed = 28f;
     [SerializeField] private float maxClipPlayTime = 0.35f;
     [SerializeField] private float woodenMaxClipPlayTime = 0f;
-    [SerializeField] private float minimumTimeBetweenSteps = 0.38f;
-    [SerializeField] private float sprintMinimumTimeBetweenSteps = 0.28f;
+    [SerializeField] private float minimumTimeBetweenSteps = 0.3f;
+    [SerializeField] private float sprintMinimumTimeBetweenSteps = 0.22f;
     [SerializeField] private float groundCheckExtraDistance = 1.5f;
     [SerializeField, Range(0f, 1f)] private float volume = 1f;
     [SerializeField, Range(0f, 1f)] private float spatialBlend = 0f;
@@ -295,17 +295,17 @@ public class SurfaceFootsteps : MonoBehaviour
             surfaceName += " " + renderer.sharedMaterial.name.ToLowerInvariant();
         }
 
-        if (surfaceName.Contains("wood") || surfaceName.Contains("cabin"))
+        if (surfaceName.Contains("wood") || surfaceName.Contains("cabin") || surfaceName.Contains("plank") || surfaceName.Contains("floor"))
         {
             clip = woodenFootstep;
             volumeMultiplier = woodenVolumeMultiplier;
         }
-        else if (surfaceName.Contains("cement") || surfaceName.Contains("concrete"))
+        else if (surfaceName.Contains("cement") || surfaceName.Contains("concrete") || surfaceName.Contains("tile") || surfaceName.Contains("stone") || surfaceName.Contains("asylum") || surfaceName.Contains("brick"))
         {
             clip = cementFootstep;
             volumeMultiplier = cementVolumeMultiplier;
         }
-        else if (surfaceName.Contains("forest") || surfaceName.Contains("ground") || surfaceName.Contains("terrain"))
+        else if (surfaceName.Contains("forest") || surfaceName.Contains("ground") || surfaceName.Contains("terrain") || surfaceName.Contains("grass") || surfaceName.Contains("dirt"))
         {
             clip = forestFootstep;
             volumeMultiplier = forestVolumeMultiplier;

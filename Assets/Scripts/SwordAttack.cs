@@ -93,6 +93,13 @@ public class SwordAttack : MonoBehaviour
         _animator.SetTrigger(_slashParam);
         Debug.Log($"[SwordAttack] Trigger '{_slashParam}' set");
 
+        // Notify the villain to play RunToStop animation
+        AStarVillainChase villain = FindObjectOfType<AStarVillainChase>();
+        if (villain != null)
+        {
+            villain.OnPlayerSwordSwing();
+        }
+
         if (_attackLayerIndex >= 0)
         {
             yield return null;

@@ -5,9 +5,9 @@ using UnityEngine.InputSystem;
 public class ThirdPersonMovement : MonoBehaviour
 {
     [Header("Movement")]
-    [SerializeField] private float walkSpeed          = 4f;
-    [SerializeField] private float sprintSpeed        = 7f;
-    [SerializeField] private float rotationSmoothTime = 0.1f;
+    [SerializeField] private float walkSpeed          = 18f;
+    [SerializeField] private float sprintSpeed        = 38f;
+    [SerializeField] private float rotationSmoothTime = 0.06f;
     [SerializeField] private float gravity            = -19.62f;
 
     [Header("Jump")]

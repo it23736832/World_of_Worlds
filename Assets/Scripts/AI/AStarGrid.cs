@@ -16,6 +16,7 @@ public class AStarGrid : MonoBehaviour
     [SerializeField] private float groundCheckDistance = 50f;
     [SerializeField] private float obstacleCheckHeight = 1.8f;
     [SerializeField] private float groundOffset = 0.05f;
+    [SerializeField] private float maxStepHeight = 0.4f;
 
     [Header("Debug")]
     [SerializeField] private bool drawGrid;

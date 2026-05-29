@@ -4,8 +4,9 @@ using UnityEngine.AI;
 
 public class SealBarricade : MonoBehaviour
 {
-    [SerializeField] private float _duration       = 30f;
-    [SerializeField] private float _animationSpeed = 0.3f;
+    [SerializeField] private float   _duration       = 30f;
+    [SerializeField] private float   _animationSpeed = 0.3f;
+    [SerializeField] private Vector3 _wallSize       = new Vector3(3f, 3f, 0.5f);
 
     private NavMeshObstacle  _obstacle;
     private BoxCollider      _solidWall;
@@ -27,20 +28,16 @@ public class SealBarricade : MonoBehaviour
 
         if (_obstacle != null)
         {
-            _obstacle.carvingTimeToStationary = 0f; // Carve immediately, no waiting
-            _obstacle.carving = true;
-            _obstacle.enabled = true;
+            _obstacle.size                    = _wallSize;
+            _obstacle.carvingTimeToStationary = 0f;
+            _obstacle.carving                 = true;
+            _obstacle.enabled                 = true;
         }
 
-        // Add a solid (non-trigger) BoxCollider so Jinu's CharacterController is physically blocked.
-        // Sized to match the NavMeshObstacle so the physics wall aligns with the carved NavMesh hole.
-        _solidWall = gameObject.AddComponent<BoxCollider>();
+        // Add a solid (non-trigger) BoxCollider so villains' CharacterControllers are physically blocked.
+        _solidWall        = gameObject.AddComponent<BoxCollider>();
         _solidWall.isTrigger = false;
-        if (_obstacle != null)
-        {
-            _solidWall.size   = _obstacle.size;
-            _solidWall.center = _obstacle.center;
-        }
+        _solidWall.size   = _wallSize;
 
         // Let Rumi pass through — only Jinu should be physically blocked
         GameObject player = GameObject.FindWithTag("Player");

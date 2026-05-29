@@ -391,6 +391,57 @@ public class AStarVillainChase : MonoBehaviour
         }
     }
 
+    private void OnTriggerEnter(Collider other)
+    {
+        // Detect force field — tagged ForceField or on a layer named ForceField
+        bool isForceField = other.CompareTag("ForceField") ||
+                            LayerMask.LayerToName(other.gameObject.layer) == "ForceField" ||
+                            other.gameObject.name.ToLower().Contains("forcefield") ||
+                            other.gameObject.name.ToLower().Contains("force field");
+        if (!isForceField) return;
+
+        StartCoroutine(ForceFieldKnockback(other.transform.position));
+    }
+
+    private IEnumerator ForceFieldKnockback(Vector3 forceFieldPos)
+    {
+        // Play hit animation
+        if (animator != null)
+            animator.SetTrigger("HitForceField");
+
+        SetIdle();
+
+        // Throw villain back away from force field
+        Vector3 pushDir = (transform.position - forceFieldPos).normalized;
+        pushDir.y = 0f;
+        float pushDuration = 0.4f;
+        float elapsed      = 0f;
+        float pushSpeed    = 8f;
+
+        while (elapsed < pushDuration)
+        {
+            _controller.Move(pushDir * pushSpeed * Time.deltaTime);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        // Stay permanently idle — game ends when Rumi is inside the force field
+        yield return null;
+    }
+
+    public void HitByForceField()
+    {
+        StartCoroutine(ForceFieldKnockback(transform.position));
+    }
+
+    public void ForceRepath()
+    {
+        _repathTimer = 0f;
+        _path.Clear();
+        _pathIndex = 0;
+        Repath();
+    }
+
     public void SetIdle()
     {
         _isIdle = true;

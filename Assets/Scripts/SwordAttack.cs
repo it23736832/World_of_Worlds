@@ -14,16 +14,17 @@ public class SwordAttack : MonoBehaviour
     [SerializeField] private AudioClip _slashSound;
     [SerializeField] private AudioSource _audioSource;
 
-    [Header("Seal Barricade")]
-    [SerializeField] private GameObject _sealPrefab;
-    [SerializeField] private int        _maxSeals       = 5;
-    [SerializeField] private float      _spawnDistance  = 1.5f;
-    [SerializeField] private LayerMask  _floorMask      = ~0;
+    [Header("Barricade")]
+    [SerializeField] private GameObject _barricadePrefab;
+    [SerializeField] private int        _maxBarricades   = 3;
+    [SerializeField] private float      _spawnScale      = 24f;
+    [SerializeField] private float      _barricadeDuration = 30f;
+    [SerializeField] private LayerMask  _floorMask       = ~0;
 
     private Animator _animator;
     private int      _attackLayerIndex = -1;
     private bool     _slashing;
-    private int      _sealsRemaining;
+    private int      _barricadesRemaining;
 
     private void Awake()
     {
@@ -41,7 +42,7 @@ public class SwordAttack : MonoBehaviour
     {
         ResolveAnimator();
         ResolveAttackLayer();
-        _sealsRemaining = _maxSeals;
+        _barricadesRemaining = _maxBarricades;
     }
 
     private void OnEnable()
@@ -103,8 +104,7 @@ public class SwordAttack : MonoBehaviour
 
         _animator.SetTrigger(_slashParam);
 
-        // Spawn seal immediately so Jinu has to reroute right away
-        SpawnSeal();
+        SpawnBarricade();
 
         // Notify villains for RunToStop reaction
         FindObjectOfType<AStarVillainChase>()?.OnPlayerSwordSwing();
@@ -134,30 +134,25 @@ public class SwordAttack : MonoBehaviour
         _slashing = false;
     }
 
-    private void SpawnSeal()
+    private void SpawnBarricade()
     {
-        if (_sealPrefab == null)
+        if (_barricadePrefab == null)
         {
-            Debug.LogWarning("[SwordAttack] Seal Prefab not assigned — assign it in the Inspector.", this);
+            Debug.LogWarning("[SwordAttack] Barricade Prefab not assigned — assign it in the Inspector.", this);
             return;
         }
-        if (_sealsRemaining <= 0)
+        if (_barricadesRemaining <= 0)
         {
-            Debug.Log("[SwordAttack] No seals remaining.");
+            Debug.Log("[SwordAttack] No barricades remaining.");
             return;
         }
 
-        Vector3 spawnOrigin = transform.position + transform.forward * _spawnDistance + Vector3.up * 1f;
-        if (Physics.Raycast(spawnOrigin, Vector3.down, out RaycastHit hit, 3f, _floorMask))
-        {
-            Instantiate(_sealPrefab, hit.point, Quaternion.identity);
-            _sealsRemaining--;
-            Debug.Log($"[SwordAttack] Seal spawned at {hit.point} ({_sealsRemaining} remaining).", this);
-        }
-        else
-        {
-            Debug.LogWarning($"[SwordAttack] Raycast missed — no floor found in front of Rumi. Check Floor Mask and spawn distance.", this);
-        }
+        Vector3 spawnPos = transform.position + Vector3.up * 1f;
+        GameObject spawned = Instantiate(_barricadePrefab, spawnPos, Quaternion.identity);
+        spawned.transform.localScale = Vector3.one * _spawnScale;
+        Destroy(spawned, _barricadeDuration);
+        _barricadesRemaining--;
+        Debug.Log($"[SwordAttack] Barricade spawned ({_barricadesRemaining} remaining, lasts {_barricadeDuration}s).", this);
     }
 
     private static bool ReadAttackInput()

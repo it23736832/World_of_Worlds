@@ -4,10 +4,11 @@ using UnityEngine.AI;
 
 public class SealBarricade : MonoBehaviour
 {
-    [SerializeField] private float _duration       = 60f;
+    [SerializeField] private float _duration       = 30f;
     [SerializeField] private float _animationSpeed = 0.3f;
 
     private NavMeshObstacle _obstacle;
+    private BoxCollider     _solidWall;
     private Animator        _animator;
     private Coroutine       _loopCoroutine;
     private NavMeshGraph    _graph;
@@ -27,6 +28,16 @@ public class SealBarricade : MonoBehaviour
             _obstacle.enabled = true;
         }
 
+        // Add a solid (non-trigger) BoxCollider so Jinu's CharacterController is physically blocked.
+        // Sized to match the NavMeshObstacle so the physics wall aligns with the carved NavMesh hole.
+        _solidWall = gameObject.AddComponent<BoxCollider>();
+        _solidWall.isTrigger = false;
+        if (_obstacle != null)
+        {
+            _solidWall.size   = _obstacle.size;
+            _solidWall.center = _obstacle.center;
+        }
+
         // Let Rumi pass through — only Jinu should be physically blocked
         GameObject player = GameObject.FindWithTag("Player");
         if (player != null)
@@ -36,6 +47,8 @@ public class SealBarricade : MonoBehaviour
             foreach (Collider pc in playerColliders)
                 foreach (Collider mc in myColliders)
                     Physics.IgnoreCollision(pc, mc, true);
+            foreach (Collider pc in playerColliders)
+                Physics.IgnoreCollision(pc, _solidWall, true);
         }
 
         if (_animator != null)
@@ -94,8 +107,8 @@ public class SealBarricade : MonoBehaviour
             _animator.Play("WaterSpellFinish", 0, 0f);
         }
 
-        if (_obstacle != null)
-            _obstacle.enabled = false;
+        if (_obstacle != null)   _obstacle.enabled = false;
+        if (_solidWall != null)  _solidWall.enabled = false;
 
         // Wait for the NavMesh to fully restore the carved area before rebuilding
         yield return new WaitForSeconds(1.5f);

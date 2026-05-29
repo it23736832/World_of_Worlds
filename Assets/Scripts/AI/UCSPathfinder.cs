@@ -48,18 +48,17 @@ public class UCSPathfinder : MonoBehaviour
             return new List<Vector3> { targetPosition };
         }
 
-        // UCS open list: (cumulative cost g, nodeId)
-        // We track the cheapest known cost and parent for each node
+        // UCS open list — binary min-heap for O(n log n) vs the old O(n²) linear scan
         Dictionary<int, float> gCost = new Dictionary<int, float>();
         Dictionary<int, int> parent = new Dictionary<int, int>();
         HashSet<int> closedSet = new HashSet<int>();
-
-        // Open list entries: (g, nodeId) — we pick the minimum g each iteration
-        List<(float g, int nodeId)> openList = new List<(float, int)>();
+        HashSet<int> frontierSet = new HashSet<int>();
+        MinHeap openList = new MinHeap();
 
         gCost[startNode] = 0f;
         parent[startNode] = -1;
-        openList.Add((0f, startNode));
+        openList.Push(startNode, 0f);
+        frontierSet.Add(startNode);
 
         int iterations = 0;
 
@@ -76,14 +75,8 @@ public class UCSPathfinder : MonoBehaviour
                 return new List<Vector3>();
             }
 
-            // Pop node with lowest g cost
-            int bestIdx = 0;
-            for (int i = 1; i < openList.Count; i++)
-            {
-                if (openList[i].g < openList[bestIdx].g) bestIdx = i;
-            }
-            var (currentG, currentNode) = openList[bestIdx];
-            openList.RemoveAt(bestIdx);
+            int currentNode = openList.Pop();
+            frontierSet.Remove(currentNode);
 
             if (closedSet.Contains(currentNode)) continue;
             closedSet.Add(currentNode);
@@ -92,12 +85,13 @@ public class UCSPathfinder : MonoBehaviour
             if (currentNode == targetNode)
             {
                 LastFailureReason = string.Empty;
-                SnapshotFrontier(openList, closedSet);
+                SnapshotFrontier(frontierSet);
                 return RetracePath(parent, startNode, targetNode, graph.NodePositions);
             }
 
             if (!graph.Adjacency.ContainsKey(currentNode)) continue;
 
+            float currentG = gCost[currentNode];
             foreach (GraphEdge edge in graph.Adjacency[currentNode])
             {
                 if (closedSet.Contains(edge.toNodeId)) continue;
@@ -108,12 +102,13 @@ public class UCSPathfinder : MonoBehaviour
                 {
                     gCost[edge.toNodeId] = newG;
                     parent[edge.toNodeId] = currentNode;
-                    openList.Add((newG, edge.toNodeId));
+                    openList.Push(edge.toNodeId, newG);
+                    frontierSet.Add(edge.toNodeId);
                 }
             }
         }
 
-        SnapshotFrontier(openList, closedSet);
+        SnapshotFrontier(frontierSet);
         LastFailureReason = $"UCS exhausted all reachable nodes after {iterations} iterations. No path exists to target (disconnected graph?).";
         if (logSearchProblems && Time.time - _lastWarnTime >= WarnThrottle)
         {
@@ -123,17 +118,65 @@ public class UCSPathfinder : MonoBehaviour
         return new List<Vector3>();
     }
 
-    // Stores a snapshot of the current open set as the visible frontier for debug overlay
-    private void SnapshotFrontier(List<(float g, int nodeId)> openList, HashSet<int> closedSet)
+    private void SnapshotFrontier(HashSet<int> frontierSet)
     {
-        LastFrontierNodes = new List<int>();
-        HashSet<int> seen = new HashSet<int>();
-        foreach (var (_, nodeId) in openList)
+        LastFrontierNodes = new List<int>(frontierSet.Count);
+        foreach (int nodeId in frontierSet)
         {
-            if (closedSet.Contains(nodeId)) continue;
-            if (!seen.Add(nodeId)) continue;
             LastFrontierNodes.Add(nodeId);
             if (LastFrontierNodes.Count >= maxDebugNodes) break;
+        }
+    }
+
+    // Binary min-heap — O(log n) push/pop; used because PriorityQueue<T,P> requires .NET 6+
+    private class MinHeap
+    {
+        private readonly List<(float g, int nodeId)> _data = new List<(float, int)>();
+        public int Count => _data.Count;
+
+        public void Push(int nodeId, float g)
+        {
+            _data.Add((g, nodeId));
+            BubbleUp(_data.Count - 1);
+        }
+
+        public int Pop()
+        {
+            int result = _data[0].nodeId;
+            int last = _data.Count - 1;
+            _data[0] = _data[last];
+            _data.RemoveAt(last);
+            if (_data.Count > 0) SiftDown(0);
+            return result;
+        }
+
+        private void BubbleUp(int i)
+        {
+            while (i > 0)
+            {
+                int p = (i - 1) / 2;
+                if (_data[i].g < _data[p].g)
+                {
+                    var tmp = _data[i]; _data[i] = _data[p]; _data[p] = tmp;
+                    i = p;
+                }
+                else break;
+            }
+        }
+
+        private void SiftDown(int i)
+        {
+            int n = _data.Count;
+            while (true)
+            {
+                int smallest = i;
+                int left = 2 * i + 1, right = 2 * i + 2;
+                if (left  < n && _data[left].g  < _data[smallest].g) smallest = left;
+                if (right < n && _data[right].g < _data[smallest].g) smallest = right;
+                if (smallest == i) break;
+                var tmp = _data[i]; _data[i] = _data[smallest]; _data[smallest] = tmp;
+                i = smallest;
+            }
         }
     }
 

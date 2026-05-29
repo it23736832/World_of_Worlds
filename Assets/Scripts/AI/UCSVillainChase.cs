@@ -1,7 +1,9 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 
+[RequireComponent(typeof(NavMeshAgent))]
 [RequireComponent(typeof(CharacterController))]
 public class UCSVillainChase : MonoBehaviour
 {
@@ -18,11 +20,13 @@ public class UCSVillainChase : MonoBehaviour
     [SerializeField] private float waypointTolerance = 0.6f;
     [SerializeField] private float stoppingDistance = 1.5f;
     [SerializeField] private float turnSpeed = 10f;
+    [SerializeField] private float navMeshSampleDistance = 2f;
     [SerializeField] private float gravity = -19.62f;
 
     [Header("Path Updates")]
     [SerializeField] private float repathRate = 0.5f;
-    [SerializeField] private float targetMoveRepathDistance = 0.3f;
+    [SerializeField] private float targetMoveRepathDistance = 1.5f;
+    [SerializeField] private float minRepathInterval = 0.15f;
 
     [Header("Animator")]
     [SerializeField] private string speedParam = "Speed";
@@ -42,12 +46,12 @@ public class UCSVillainChase : MonoBehaviour
 
     [Header("Barricade Hit")]
     [SerializeField] private string hitBarricadeTrigger = "HitBarricade";
-    [SerializeField] private float hitRecoveryDuration = 3.5f;
 
     [Header("Debug")]
     [SerializeField] private bool logPathProblems = true;
     [SerializeField] private bool drawPath = true;
 
+    private NavMeshAgent _navAgent;
     private CharacterController _controller;
     private AudioSource _audioSource;
     private List<Vector3> _path = new List<Vector3>();
@@ -59,26 +63,25 @@ public class UCSVillainChase : MonoBehaviour
     private float _closeSoundTimer;
     private Vector3 _lastTargetPosition;
 
-    // Stuck detection
     private Vector3 _lastStuckCheckPos;
     private float _stuckTimer;
     private const float StuckCheckInterval = 1.5f;
     private const float StuckMoveThreshold = 0.25f;
 
+    private float _lastRepathTime = -999f;
     private float _lastWarnTime = -999f;
     private const float WarnThrottle = 5f;
-
-    // Barricade hit
-    private bool _isHit;
-    private float _hitTimer;
-    private float _hitCooldown; // prevents re-triggering while still touching the collider
-    private float _hitGroundY;  // Y position when hit — keeps model from sinking during animation
 
     public List<Vector3> CurrentPath => _path;
 
     private void Awake()
     {
         _controller = GetComponent<CharacterController>();
+        _navAgent = GetComponent<NavMeshAgent>();
+        _navAgent.updatePosition = false; // NavMeshAgent steers; CharacterController handles collisions like Rumi.
+        _navAgent.updateRotation = false;
+        _navAgent.stoppingDistance = 0f;
+
         _audioSource = GetComponent<AudioSource>();
         if (_audioSource == null) _audioSource = gameObject.AddComponent<AudioSource>();
 
@@ -101,30 +104,23 @@ public class UCSVillainChase : MonoBehaviour
         }
 
         _lastTargetPosition = target != null ? target.position : transform.position;
+        _lastStuckCheckPos = transform.position;
+        SyncAgentToController();
 
-        Debug.Log($"[UCSVillainChase] Started on '{gameObject.name}'. Target: {(target != null ? target.name : "NULL")}. Pathfinder: {(pathfinder != null ? "OK" : "NULL — assign AI System in Inspector!")}. Animator: {(animator != null ? "OK" : "NULL")}.");
+        Debug.Log($"[UCSVillainChase] Started on '{gameObject.name}'. Target: {(target != null ? target.name : "NULL")}. Pathfinder: {(pathfinder != null ? "OK" : "NULL — assign in Inspector!")}. Animator: {(animator != null ? "OK" : "NULL")}.");
 
         Repath();
     }
 
     private void Update()
     {
-        ApplyGravity();
-        _attackTimer -= Time.deltaTime;
-        _roarTimer -= Time.deltaTime;
+        _attackTimer     -= Time.deltaTime;
+        _roarTimer       -= Time.deltaTime;
         _closeSoundTimer -= Time.deltaTime;
-        _hitCooldown -= Time.deltaTime;
-
-        if (_isHit)
-        {
-            _hitTimer -= Time.deltaTime;
-            if (_hitTimer <= 0f) _isHit = false;
-            SetAnimatorSpeed(0f);
-            return;
-        }
 
         if (target == null || pathfinder == null)
         {
+            _navAgent.isStopped = true;
             SetAnimatorSpeed(0f);
             return;
         }
@@ -134,6 +130,7 @@ public class UCSVillainChase : MonoBehaviour
 
         if (distToTarget <= stoppingDistance)
         {
+            _navAgent.isStopped = true;
             FacePosition(target.position);
             SetAnimatorSpeed(0f);
             TryAttack();
@@ -151,15 +148,18 @@ public class UCSVillainChase : MonoBehaviour
 
     private void Repath()
     {
+        if (Time.time - _lastRepathTime < minRepathInterval) return;
+        _lastRepathTime = Time.time;
         _repathTimer = repathRate;
         if (target == null || pathfinder == null) return;
 
-        List<Vector3> newPath = pathfinder.FindPath(transform.position, target.position);
+        Vector3 startPos  = GetNearestNavMeshPosition(transform.position);
+        Vector3 targetPos = GetNearestNavMeshPosition(target.position);
+        List<Vector3> newPath = pathfinder.FindPath(startPos, targetPos);
 
         if (newPath != null && newPath.Count > 0)
         {
-            // Append exact target position so Jinu walks all the way to RUMI
-            newPath.Add(target.position);
+            newPath.Add(targetPos);
             _path = newPath;
             _pathIndex = 0;
         }
@@ -167,68 +167,102 @@ public class UCSVillainChase : MonoBehaviour
         {
             _lastWarnTime = Time.time;
             string reason = !string.IsNullOrWhiteSpace(pathfinder.LastFailureReason)
-                ? pathfinder.LastFailureReason
-                : "Unknown. Check NavMeshGraph and NavMesh bake.";
+                ? pathfinder.LastFailureReason : "Unknown. Check NavMeshGraph and NavMesh bake.";
             Debug.LogWarning($"[UCSVillainChase] Repath failed, keeping last path. {reason}", this);
         }
 
         _lastTargetPosition = target.position;
     }
 
+    // UCS gives us the waypoints; NavMeshAgent steers, while CharacterController enforces world collision.
     private void FollowPath(float distToTarget)
     {
         if (_path == null || _path.Count == 0 || _pathIndex >= _path.Count)
         {
+            _navAgent.isStopped = true;
             SetAnimatorSpeed(0f);
+            if (target != null) FacePosition(target.position);
             return;
         }
 
         Vector3 waypoint  = _path[_pathIndex];
         Vector3 toWaypoint = waypoint - transform.position;
-        Vector3 flatDir   = new Vector3(toWaypoint.x, 0f, toWaypoint.z);
+        float flatDist = new Vector2(toWaypoint.x, toWaypoint.z).magnitude;
 
-        if (flatDir.magnitude <= waypointTolerance)
+        if (flatDist <= waypointTolerance)
         {
             _pathIndex++;
             return;
         }
 
         float speed = distToTarget >= runDistance ? runSpeed : walkSpeed;
-        _controller.Move(flatDir.normalized * speed * Time.deltaTime);
-        FacePosition(waypoint);
+        _navAgent.speed = speed;
+        _navAgent.isStopped = false;
+        _navAgent.SetDestination(waypoint);
+
+        MoveWithCollision(waypoint, speed);
+
+        FacePosition(distToTarget < runDistance ? target.position : waypoint);
         SetAnimatorSpeed(Mathf.InverseLerp(0f, runSpeed, speed));
     }
 
-    private void ApplyGravity()
+    private void MoveWithCollision(Vector3 waypoint, float speed)
     {
         if (_controller.isGrounded && _verticalVelocity < 0f)
             _verticalVelocity = -2f;
 
         _verticalVelocity += gravity * Time.deltaTime;
-        _controller.Move(Vector3.up * _verticalVelocity * Time.deltaTime);
-    }
 
-    private void LateUpdate()
-    {
-        // Only prevent sinking below the floor — do not lock Y upward so gravity still works
-        if (_isHit && transform.position.y < _hitGroundY)
+        Vector3 desiredVelocity = _navAgent.desiredVelocity;
+        desiredVelocity.y = 0f;
+
+        if (desiredVelocity.sqrMagnitude < 0.01f)
         {
-            Vector3 p = transform.position;
-            transform.position = new Vector3(p.x, _hitGroundY, p.z);
+            Vector3 fallback = waypoint - transform.position;
+            fallback.y = 0f;
+            desiredVelocity = fallback.sqrMagnitude > 0.01f ? fallback.normalized * speed : Vector3.zero;
         }
+
+        CollisionFlags flags = _controller.Move((desiredVelocity + Vector3.up * _verticalVelocity) * Time.deltaTime);
+        if ((flags & CollisionFlags.Above) != 0 && _verticalVelocity > 0f)
+            _verticalVelocity = 0f;
+
+        SyncAgentToController();
     }
 
-    private void OnControllerColliderHit(ControllerColliderHit hit)
+    private Vector3 GetNearestNavMeshPosition(Vector3 position)
     {
-        if (_isHit || _hitCooldown > 0f) return;
-        if (hit.gameObject.GetComponent<SealBarricade>() == null) return;
+        if (NavMesh.SamplePosition(position, out NavMeshHit hit, navMeshSampleDistance, NavMesh.AllAreas)
+            && Mathf.Abs(hit.position.y - position.y) <= 1f)
+            return hit.position;
+        return position;
+    }
 
-        _isHit = true;
-        _hitTimer = hitRecoveryDuration;
-        _hitCooldown = hitRecoveryDuration + 1f;
-        _hitGroundY = transform.position.y;
+    private void SyncAgentToController()
+    {
+        if (_navAgent == null || !_navAgent.enabled)
+            return;
+
+        if (_navAgent.isOnNavMesh)
+        {
+            _navAgent.nextPosition = transform.position;
+            return;
+        }
+
+        if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, navMeshSampleDistance, NavMesh.AllAreas))
+            _navAgent.Warp(hit.position);
+    }
+
+    // Triggered when Jinu walks into the barricade's trigger collider.
+    // Don't stop him — clear the stale path so Update() immediately requests a new one around the barrier.
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.GetComponent<SealBarricade>() == null) return;
+
         _path.Clear();
         _pathIndex = 0;
+        _repathTimer = 0f;          // skip the cooldown, repath on the very next Update
+        _lastRepathTime = -999f;    // bypass minRepathInterval guard too
 
         if (animator != null && !string.IsNullOrWhiteSpace(hitBarricadeTrigger) && HasAnimatorParam(hitBarricadeTrigger))
             animator.SetTrigger(hitBarricadeTrigger);
@@ -240,12 +274,11 @@ public class UCSVillainChase : MonoBehaviour
         if (_stuckTimer < StuckCheckInterval) return;
         _stuckTimer = 0f;
 
-        float moved = Vector3.Distance(transform.position, _lastStuckCheckPos);
-        if (moved < StuckMoveThreshold && _path.Count > 0 && _pathIndex < _path.Count)
+        if (Vector3.Distance(transform.position, _lastStuckCheckPos) < StuckMoveThreshold
+            && _path.Count > 0 && _pathIndex < _path.Count)
         {
             Repath();
-            if (logPathProblems)
-                Debug.Log("[UCSVillainChase] Stuck — forcing repath.", this);
+            if (logPathProblems) Debug.Log("[UCSVillainChase] Stuck — forcing repath.", this);
         }
         _lastStuckCheckPos = transform.position;
     }
@@ -287,18 +320,9 @@ public class UCSVillainChase : MonoBehaviour
         animator.SetFloat(speedParam, speed, animatorDampTime, Time.deltaTime);
     }
 
-    public void SetIdle()
-    {
-        _path.Clear();
-        _pathIndex = 0;
-        SetAnimatorSpeed(0f);
-    }
-
-    public void ResumeChase()
-    {
-        _path.Clear();
-        _pathIndex = 0;
-    }
+    public void SetIdle()    { _path.Clear(); _pathIndex = 0; _navAgent.isStopped = true; SetAnimatorSpeed(0f); }
+    public void ResumeChase(){ _path.Clear(); _pathIndex = 0; }
+    public void ForceRepath() => Repath();
 
     public void OnPlayerSwordSwing()
     {
@@ -323,13 +347,9 @@ public class UCSVillainChase : MonoBehaviour
         return false;
     }
 
-    // Called by SealBarricade when edges are severed or restored
-    public void ForceRepath() => Repath();
-
     private void OnDrawGizmos()
     {
         if (!drawPath || _path == null || _path.Count < 1) return;
-
         Gizmos.color = Color.green;
         for (int i = 0; i < _path.Count - 1; i++)
         {

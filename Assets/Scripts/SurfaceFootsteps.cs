@@ -27,17 +27,17 @@ public class SurfaceFootsteps : MonoBehaviour
     [Header("Timing")]
     [SerializeField] private FootstepTriggerMode triggerMode = FootstepTriggerMode.CharacterControllerDistance;
     [SerializeField] private float minMoveSpeed = 0.15f;
-    [SerializeField] private float walkStepDistance = 7f;
-    [SerializeField] private float sprintStepDistance = 11f;
+    [SerializeField] private float walkStepDistance = 1.8f;
+    [SerializeField] private float sprintStepDistance = 1.5f;
     [SerializeField, Range(0f, 1f)] private float firstStepDistanceMultiplier = 0.5f;
-    [SerializeField] private float walkStepInterval = 1.6f;
-    [SerializeField] private float sprintStepInterval = 0.65f;
-    [SerializeField] private float sprintSpeed = 38f;
-    [SerializeField] private float sprintStartSpeed = 28f;
+    [SerializeField] private float walkStepInterval = 0.45f;
+    [SerializeField] private float sprintStepInterval = 0.28f;
+    [SerializeField] private float sprintSpeed = 7f;
+    [SerializeField] private float sprintStartSpeed = 5.5f;
     [SerializeField] private float maxClipPlayTime = 0.35f;
     [SerializeField] private float woodenMaxClipPlayTime = 0f;
-    [SerializeField] private float minimumTimeBetweenSteps = 0.3f;
-    [SerializeField] private float sprintMinimumTimeBetweenSteps = 0.22f;
+    [SerializeField] private float minimumTimeBetweenSteps = 0.16f;
+    [SerializeField] private float sprintMinimumTimeBetweenSteps = 0.12f;
     [SerializeField] private float groundCheckExtraDistance = 1.5f;
     [SerializeField, Range(0f, 1f)] private float volume = 1f;
     [SerializeField, Range(0f, 1f)] private float spatialBlend = 0f;

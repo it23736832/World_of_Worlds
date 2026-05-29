@@ -43,6 +43,11 @@ public class SwordHolder : MonoBehaviour
         _sword.transform.localScale    = Vector3.one * _scale;
     }
 
+    public void HideSword()
+    {
+        if (_sword != null) _sword.SetActive(false);
+    }
+
     private void Detach()
     {
         if (_sword != null)

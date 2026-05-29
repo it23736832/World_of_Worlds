@@ -276,26 +276,19 @@ public class AStarVillainChase : MonoBehaviour
             return;
         }
 
-        // Check if blocked by obstacle
+        // Check if physically stuck — repath immediately rather than trying to jump
         if (IsBlockedByObstacle(direction))
         {
             _stuckTimer += Time.deltaTime;
-            if (_stuckTimer >= stuckDuration && !string.IsNullOrWhiteSpace(runningJumpTrigger))
+            if (_stuckTimer >= stuckDuration)
             {
-                animator.SetTrigger(runningJumpTrigger);
-                _jumpAttemptsAtWaypoint++;
                 _stuckTimer = 0f;
-
-                // If we've jumped too many times at this waypoint, skip it
-                if (_jumpAttemptsAtWaypoint > maxJumpAttemptsPerWaypoint)
+                _jumpAttemptsAtWaypoint = 0;
+                if (pathfinder != null && target != null)
                 {
-                    Debug.Log($"[AStarVillainChase] Too many jump attempts at waypoint. Skipping waypoint and recalculating.", this);
-                    _pathIndex++;
-                    _jumpAttemptsAtWaypoint = 0;
-                    if (pathfinder != null && target != null)
-                    {
-                        _path = pathfinder.FindPath(transform.position, target.position);
-                    }
+                    _path = pathfinder.FindPath(transform.position, target.position);
+                    _pathIndex = 0;
+                    Debug.Log("[AStarVillainChase] Stuck against obstacle — repathing.", this);
                 }
             }
         }
@@ -391,42 +384,31 @@ public class AStarVillainChase : MonoBehaviour
         }
     }
 
-    private void OnTriggerEnter(Collider other)
-    {
-        // Detect force field — tagged ForceField or on a layer named ForceField
-        bool isForceField = other.CompareTag("ForceField") ||
-                            LayerMask.LayerToName(other.gameObject.layer) == "ForceField" ||
-                            other.gameObject.name.ToLower().Contains("forcefield") ||
-                            other.gameObject.name.ToLower().Contains("force field");
-        if (!isForceField) return;
-
-        StartCoroutine(ForceFieldKnockback(other.transform.position));
-    }
+    // Force field detection is handled entirely by ForceFieldVillainDetector.
+    // HitByForceField() and SetIdle() are called from there based on _isEndGame.
 
     private IEnumerator ForceFieldKnockback(Vector3 forceFieldPos)
     {
-        // Play hit animation
         if (animator != null)
             animator.SetTrigger("HitForceField");
 
         SetIdle();
 
-        // Throw villain back away from force field
+        // Push villain away from the force field
         Vector3 pushDir = (transform.position - forceFieldPos).normalized;
         pushDir.y = 0f;
-        float pushDuration = 0.4f;
-        float elapsed      = 0f;
-        float pushSpeed    = 8f;
+        float elapsed = 0f;
 
-        while (elapsed < pushDuration)
+        while (elapsed < 0.4f)
         {
-            _controller.Move(pushDir * pushSpeed * Time.deltaTime);
+            _controller.Move(pushDir * 8f * Time.deltaTime);
             elapsed += Time.deltaTime;
             yield return null;
         }
 
-        // Stay permanently idle — game ends when Rumi is inside the force field
-        yield return null;
+        // Stay stunned for 10 seconds then resume chasing
+        yield return new WaitForSeconds(10f);
+        ResumeChase();
     }
 
     public void HitByForceField()

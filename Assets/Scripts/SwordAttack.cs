@@ -10,6 +10,10 @@ public class SwordAttack : MonoBehaviour
     [SerializeField] private float _crossFadeDuration = 0.05f;
     [SerializeField] private float _maxSlashDuration = 1.5f;
 
+    [Header("Audio")]
+    [SerializeField] private AudioClip _slashSound;
+    [SerializeField] private AudioSource _audioSource;
+
     [Header("Seal Barricade")]
     [SerializeField] private GameObject _sealPrefab;
     [SerializeField] private int        _maxSeals       = 5;
@@ -26,6 +30,11 @@ public class SwordAttack : MonoBehaviour
         _animator = GetComponent<Animator>();
         if (_animator == null)
             _animator = GetComponentInChildren<Animator>();
+
+        if (_audioSource == null)
+            _audioSource = GetComponent<AudioSource>();
+        if (_audioSource == null)
+            _audioSource = gameObject.AddComponent<AudioSource>();
     }
 
     private void Start()
@@ -78,6 +87,9 @@ public class SwordAttack : MonoBehaviour
     private IEnumerator SlashRoutine()
     {
         _slashing = true;
+
+        if (_slashSound != null && _audioSource != null)
+            _audioSource.PlayOneShot(_slashSound);
 
         if (_attackLayerIndex >= 0)
         {

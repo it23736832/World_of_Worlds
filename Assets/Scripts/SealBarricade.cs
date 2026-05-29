@@ -7,19 +7,23 @@ public class SealBarricade : MonoBehaviour
     [SerializeField] private float _duration       = 30f;
     [SerializeField] private float _animationSpeed = 0.3f;
 
-    private NavMeshObstacle _obstacle;
-    private BoxCollider     _solidWall;
-    private Animator        _animator;
-    private Coroutine       _loopCoroutine;
-    private NavMeshGraph    _graph;
-    private UCSVillainChase _villain;
+    private NavMeshObstacle  _obstacle;
+    private BoxCollider      _solidWall;
+    private Animator         _animator;
+    private Coroutine        _loopCoroutine;
+    private NavMeshGraph     _graph;
+    private UCSVillainChase  _villain;
+    private AStarVillainChase _aStarVillain;
+    private AStarGrid         _aStarGrid;
 
     private void Start()
     {
         _obstacle = GetComponent<NavMeshObstacle>();
         _animator = GetComponent<Animator>();
-        _graph    = FindObjectOfType<NavMeshGraph>();
-        _villain  = FindObjectOfType<UCSVillainChase>();
+        _graph        = FindObjectOfType<NavMeshGraph>();
+        _villain      = FindObjectOfType<UCSVillainChase>();
+        _aStarVillain = FindObjectOfType<AStarVillainChase>();
+        _aStarGrid    = FindObjectOfType<AStarGrid>();
 
         if (_obstacle != null)
         {
@@ -58,6 +62,7 @@ public class SealBarricade : MonoBehaviour
         }
 
         StartCoroutine(RebuildAfterCarve());
+        StartCoroutine(RebuildAStarAfterDelay());
         StartCoroutine(ExpireRoutine());
     }
 
@@ -75,6 +80,22 @@ public class SealBarricade : MonoBehaviour
         _graph.BuildGraph();
         _villain?.ForceRepath();
         Debug.Log("[SealBarricade] NavMesh graph rebuilt after carve. Jinu must find a new route.", this);
+    }
+
+    // Rebuild the A* grid after 10 s so the altar villain sees the seal as an obstacle and reroutes
+    private IEnumerator RebuildAStarAfterDelay()
+    {
+        yield return new WaitForSeconds(10f);
+
+        if (_aStarGrid == null)
+        {
+            Debug.LogWarning("[SealBarricade] No AStarGrid in scene — altar villain path will not update.", this);
+            yield break;
+        }
+
+        _aStarGrid.BuildGrid();
+        _aStarVillain?.ForceRepath();
+        Debug.Log("[SealBarricade] A* grid rebuilt after 10 s. Altar villain must find a new route.", this);
     }
 
     private IEnumerator LoopStartAnimation()
@@ -118,6 +139,13 @@ public class SealBarricade : MonoBehaviour
             _graph.BuildGraph();
             _villain?.ForceRepath();
             Debug.Log("[SealBarricade] Barricade expired, graph rebuilt. Jinu can recalculate route.", this);
+        }
+
+        if (_aStarGrid != null)
+        {
+            _aStarGrid.BuildGrid();
+            _aStarVillain?.ForceRepath();
+            Debug.Log("[SealBarricade] A* grid rebuilt after expiry. Altar villain can recalculate route.", this);
         }
 
         yield return new WaitForSeconds(1.5f);

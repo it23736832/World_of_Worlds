@@ -195,6 +195,62 @@ public class TreasureChestInteract : MonoBehaviour
 #endif
     }
 
+    [ContextMenu("4. Preview Mic In Hand")]
+    private void PreviewMicInHand()
+    {
+        if (micInChest == null) { Debug.LogWarning("[TreasureChest] Mic In Chest not assigned!", this); return; }
+
+        GameObject player = GameObject.FindWithTag(playerTag);
+        if (player == null) { Debug.LogWarning("[TreasureChest] No Player tagged object found in scene.", this); return; }
+
+        Animator anim = player.GetComponentInChildren<Animator>();
+        if (anim == null) { Debug.LogWarning("[TreasureChest] No Animator found on Player.", this); return; }
+
+        Transform rightHand = anim.GetBoneTransform(HumanBodyBones.RightHand);
+        if (rightHand == null) { Debug.LogWarning("[TreasureChest] Right hand bone not found.", this); return; }
+
+        // Store original parent/pos/rot/scale to restore later
+        _micOriginalParent   = micInChest.transform.parent;
+        _micOriginalPosition = micInChest.transform.localPosition;
+        _micOriginalRotation = micInChest.transform.localRotation;
+        _micOriginalScale    = micInChest.transform.localScale;
+
+        Vector3 worldScale = micInChest.transform.lossyScale;
+        micInChest.transform.SetParent(rightHand, false);
+        micInChest.transform.localPosition = micHandPosition;
+        micInChest.transform.localRotation = Quaternion.Euler(micHandRotation);
+        Vector3 ps = rightHand.lossyScale;
+        micInChest.transform.localScale = new Vector3(
+            ps.x != 0 ? worldScale.x / ps.x : 1f,
+            ps.y != 0 ? worldScale.y / ps.y : 1f,
+            ps.z != 0 ? worldScale.z / ps.z : 1f) * micHandScale;
+
+#if UNITY_EDITOR
+        UnityEditor.EditorUtility.SetDirty(gameObject);
+#endif
+        Debug.Log("[TreasureChest] Mic previewed in hand. Adjust Mic Hand Position/Rotation/Scale then run again.", this);
+    }
+
+    [ContextMenu("5. Return Mic To Chest")]
+    private void ReturnMicToChest()
+    {
+        if (micInChest == null) return;
+        if (_micOriginalParent == null) { Debug.LogWarning("[TreasureChest] Run '4. Preview Mic In Hand' first.", this); return; }
+
+        micInChest.transform.SetParent(_micOriginalParent, false);
+        micInChest.transform.localPosition = _micOriginalPosition;
+        micInChest.transform.localRotation = _micOriginalRotation;
+        micInChest.transform.localScale    = _micOriginalScale;
+#if UNITY_EDITOR
+        UnityEditor.EditorUtility.SetDirty(gameObject);
+#endif
+    }
+
+    [SerializeField, HideInInspector] private Transform  _micOriginalParent;
+    [SerializeField, HideInInspector] private Vector3    _micOriginalPosition;
+    [SerializeField, HideInInspector] private Quaternion _micOriginalRotation;
+    [SerializeField, HideInInspector] private Vector3    _micOriginalScale;
+
     [ContextMenu("3. Preview Closed")]
     private void PreviewClosed()
     {

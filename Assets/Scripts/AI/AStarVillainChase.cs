@@ -70,6 +70,7 @@ public class AStarVillainChase : MonoBehaviour
     private int _jumpAttemptsAtWaypoint = 0;
     private Vector3 _lastWaypoint;
     private bool _isIdle = false;
+    private bool _engagedInFight;
     [SerializeField] private float stuckThreshold = 0.1f;
     [SerializeField] private float stuckDuration = 0.5f;
     [SerializeField] private float obstacleCheckDistance = 3f;
@@ -143,6 +144,8 @@ public class AStarVillainChase : MonoBehaviour
         _attackTimer -= Time.deltaTime;
         _roarTimer -= Time.deltaTime;
         _closeSoundTimer -= Time.deltaTime;
+
+        if (_engagedInFight) return;
 
         if (target == null || pathfinder == null)
         {
@@ -436,10 +439,24 @@ public class AStarVillainChase : MonoBehaviour
     public void ResumeChase()
     {
         _isIdle = false;
-        // Path will be recalculated in next Update() call
         _path.Clear();
         _pathIndex = 0;
         Debug.Log("[AStarVillainChase] Villain resumed chase.", this);
+    }
+
+    public void EnterFight()
+    {
+        _engagedInFight = true;
+        _isIdle = true;
+        _path.Clear();
+        _pathIndex = 0;
+        SetAnimatorSpeed(0f);
+    }
+
+    public void ExitFight()
+    {
+        _engagedInFight = false;
+        ResumeChase();
     }
 
     private void SetAnimatorSpeed(float speed)

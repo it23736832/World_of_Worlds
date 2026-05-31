@@ -4,15 +4,21 @@ using UnityEngine.UI;
 public class VillainProximityHUD : MonoBehaviour
 {
     [Header("Layout")]
-    [SerializeField] private Vector2 _panelSize = new Vector2(240f, 72f);
+    [SerializeField] private Vector2 _panelSize = new Vector2(240f, 96f);
     [SerializeField] private Vector2 _margin    = new Vector2(18f, 18f);
 
-    private Transform       _player;
+    private Transform         _player;
     private AStarVillainChase _astar;
     private UCSVillainChase   _ucs;
     private Text  _headerText;
     private Text  _dataText;
+    private Text  _sealsText;
     private Image _bg;
+
+    private float  _lastDist   = -1f;
+    private int    _lastNodes  = -99;
+    private int    _lastSeals  = -1;
+    private string _lastHeader = "";
 
     private static readonly Color ColBgSafe   = new Color(0.04f, 0.02f, 0.14f, 0.85f);
     private static readonly Color ColBgClose  = new Color(0.22f, 0.04f, 0.04f, 0.88f);
@@ -20,6 +26,7 @@ public class VillainProximityHUD : MonoBehaviour
     private static readonly Color ColCyan     = new Color(0.38f, 0.93f, 1.00f, 1.00f);
     private static readonly Color ColOrange   = new Color(1.00f, 0.62f, 0.10f, 1.00f);
     private static readonly Color ColRed      = new Color(1.00f, 0.28f, 0.28f, 1.00f);
+    private static readonly Color ColGrey     = new Color(0.50f, 0.50f, 0.55f, 0.80f);
 
     private void Start()
     {
@@ -27,7 +34,6 @@ public class VillainProximityHUD : MonoBehaviour
         if (p != null) _player = p.transform;
         _astar = FindObjectOfType<AStarVillainChase>();
         _ucs   = FindObjectOfType<UCSVillainChase>();
-
         BuildUI();
     }
 
@@ -41,7 +47,7 @@ public class VillainProximityHUD : MonoBehaviour
         scaler.uiScaleMode         = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1280f, 720f);
 
-        // Panel — top-right corner
+        // Panel — anchored top-right
         GameObject panelGO = new GameObject("ProximityPanel");
         panelGO.transform.SetParent(canvasGO.transform, false);
         _bg       = panelGO.AddComponent<Image>();
@@ -54,17 +60,16 @@ public class VillainProximityHUD : MonoBehaviour
         panelRT.sizeDelta        = _panelSize;
         panelRT.anchoredPosition = new Vector2(-_margin.x, -_margin.y);
 
-        float halfH = _panelSize.y * 0.5f;
+        // Panel height 96 — three rows of ~28px with 4px gaps and margins
+        // Row positions (bottom → top): seals(4→32), data(36→64), header(68→92)
+        _headerText = MakeText(panelGO, "Header", 17, FontStyle.Bold, ColCyan, TextAnchor.MiddleCenter,
+                               new Vector2(10f, 68f), new Vector2(-10f, -4f));
 
-        // Header row (top half)
-        _headerText = MakeText(panelGO, "Header", 17, FontStyle.Bold,
-                               ColCyan, TextAnchor.MiddleCenter,
-                               new Vector2(10f, halfH), new Vector2(-10f, -6f));
+        _dataText   = MakeText(panelGO, "Data",   19, FontStyle.Bold, ColCyan, TextAnchor.MiddleCenter,
+                               new Vector2(10f, 36f), new Vector2(-10f, -32f));
 
-        // Data row (bottom half)
-        _dataText = MakeText(panelGO, "Data", 20, FontStyle.Bold,
-                             ColCyan, TextAnchor.MiddleCenter,
-                             new Vector2(10f, 6f), new Vector2(-10f, -halfH));
+        _sealsText  = MakeText(panelGO, "Seals",  13, FontStyle.Bold, ColGrey, TextAnchor.MiddleCenter,
+                               new Vector2(10f, 4f),  new Vector2(-10f, -64f));
     }
 
     private Text MakeText(GameObject parent, string name, int size, FontStyle style,
@@ -117,6 +122,7 @@ public class VillainProximityHUD : MonoBehaviour
         {
             _headerText.text = "✦  VILLAIN";
             _dataText.text   = "--  ◆  --";
+            UpdateSealsRow();
             return;
         }
 
@@ -148,14 +154,44 @@ public class VillainProximityHUD : MonoBehaviour
             bgTarget = ColBgSafe;
         }
 
-        _headerText.text  = header;
-        _headerText.color = col;
+        float dispDist = Mathf.Round(dist * 10f) / 10f;
 
-        _dataText.text  = nodes >= 0
-            ? $"{dist:F1} m  ◆  {nodes} nodes"
-            : $"{dist:F1} m";
-        _dataText.color = col;
+        if (header != _lastHeader)
+        {
+            _headerText.text  = header;
+            _headerText.color = col;
+            _dataText.color   = col;
+            _lastHeader       = header;
+        }
 
+        if (dispDist != _lastDist || nodes != _lastNodes)
+        {
+            _dataText.text = nodes >= 0
+                ? $"{dispDist:F1} m  ◆  {nodes} nodes"
+                : $"{dispDist:F1} m";
+            _lastDist  = dispDist;
+            _lastNodes = nodes;
+        }
+
+        UpdateSealsRow();
         _bg.color = Color.Lerp(_bg.color, bgTarget, Time.deltaTime * 5f);
+    }
+
+    private void UpdateSealsRow()
+    {
+        int seals = SealBarricade.ActiveCount;
+        if (seals == _lastSeals) return;
+        _lastSeals = seals;
+
+        if (seals > 0)
+        {
+            _sealsText.text  = $"◆  {seals} seal{(seals != 1 ? "s" : "")} active";
+            _sealsText.color = ColCyan;
+        }
+        else
+        {
+            _sealsText.text  = "◆  no seals active";
+            _sealsText.color = ColGrey;
+        }
     }
 }

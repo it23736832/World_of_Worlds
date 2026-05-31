@@ -3,9 +3,11 @@ using UnityEngine.UI;
 
 public class VillainProximityHUD : MonoBehaviour
 {
-    [Header("Layout")]
-    [SerializeField] private Vector2 _panelSize = new Vector2(240f, 96f);
-    [SerializeField] private Vector2 _margin    = new Vector2(18f, 18f);
+    // Using constants (not SerializeField) so stale scene-serialized values can never break the layout.
+    private const float PanelW  = 240f;
+    private const float PanelH  = 96f;
+    private const float MarginX = 18f;
+    private const float MarginY = 18f;
 
     private Transform         _player;
     private AStarVillainChase _astar;
@@ -39,6 +41,7 @@ public class VillainProximityHUD : MonoBehaviour
 
     private void BuildUI()
     {
+        // Canvas
         GameObject canvasGO = new GameObject("VillainProximityCanvas");
         Canvas canvas = canvasGO.AddComponent<Canvas>();
         canvas.renderMode   = RenderMode.ScreenSpaceOverlay;
@@ -47,7 +50,7 @@ public class VillainProximityHUD : MonoBehaviour
         scaler.uiScaleMode         = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1280f, 720f);
 
-        // Panel — anchored top-right
+        // Panel — top-right corner
         GameObject panelGO = new GameObject("ProximityPanel");
         panelGO.transform.SetParent(canvasGO.transform, false);
         _bg       = panelGO.AddComponent<Image>();
@@ -57,35 +60,32 @@ public class VillainProximityHUD : MonoBehaviour
         panelRT.anchorMin        = new Vector2(1f, 1f);
         panelRT.anchorMax        = new Vector2(1f, 1f);
         panelRT.pivot            = new Vector2(1f, 1f);
-        panelRT.sizeDelta        = _panelSize;
-        panelRT.anchoredPosition = new Vector2(-_margin.x, -_margin.y);
+        panelRT.sizeDelta        = new Vector2(PanelW, PanelH);
+        panelRT.anchoredPosition = new Vector2(-MarginX, -MarginY);
 
-        // Panel height 96 — three rows of ~28px with 4px gaps and margins
-        // Row positions (bottom → top): seals(4→32), data(36→64), header(68→92)
-        _headerText = MakeText(panelGO, "Header", 17, FontStyle.Bold, ColCyan, TextAnchor.MiddleCenter,
-                               new Vector2(10f, 68f), new Vector2(-10f, -4f));
-
-        _dataText   = MakeText(panelGO, "Data",   19, FontStyle.Bold, ColCyan, TextAnchor.MiddleCenter,
-                               new Vector2(10f, 36f), new Vector2(-10f, -32f));
-
-        _sealsText  = MakeText(panelGO, "Seals",  13, FontStyle.Bold, ColGrey, TextAnchor.MiddleCenter,
-                               new Vector2(10f, 4f),  new Vector2(-10f, -64f));
+        // Divide panel into 3 equal rows using percentage anchors — immune to size mismatches
+        _headerText = MakeRow(panelGO, "Header", 17, ColCyan, 2f / 3f, 1f, 4f);
+        _dataText   = MakeRow(panelGO, "Data",   19, ColCyan, 1f / 3f, 2f / 3f, 4f);
+        _sealsText  = MakeRow(panelGO, "Seals",  13, ColGrey, 0f,      1f / 3f, 4f);
     }
 
-    private Text MakeText(GameObject parent, string name, int size, FontStyle style,
-                          Color color, TextAnchor align, Vector2 offsetMin, Vector2 offsetMax)
+    // Creates a Text object that occupies a horizontal band between anchorYMin and anchorYMax,
+    // with a pixel inset on all sides. This approach is immune to absolute pixel size assumptions.
+    private Text MakeRow(GameObject panel, string rowName, int fontSize, Color color,
+                         float anchorYMin, float anchorYMax, float inset)
     {
-        GameObject go = new GameObject(name);
-        go.transform.SetParent(parent.transform, false);
+        GameObject go = new GameObject(rowName);
+        go.transform.SetParent(panel.transform, false);
 
-        Text t    = go.AddComponent<Text>();
+        Text t = go.AddComponent<Text>();
         Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        if (font == null) font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-        t.font      = font;
-        t.fontSize  = size;
-        t.fontStyle = style;
-        t.color     = color;
-        t.alignment = align;
+        if (font != null) t.font = font;   // only override if we actually found one
+        t.fontSize          = fontSize;
+        t.fontStyle         = FontStyle.Bold;
+        t.color             = color;
+        t.alignment         = TextAnchor.MiddleCenter;
+        t.horizontalOverflow = HorizontalWrapMode.Overflow;
+        t.verticalOverflow   = VerticalWrapMode.Overflow;
 
         Outline ol = go.AddComponent<Outline>();
         ol.effectColor    = new Color(0f, 0f, 0f, 1f);
@@ -96,10 +96,10 @@ public class VillainProximityHUD : MonoBehaviour
         sh.effectDistance = new Vector2(2f, -2f);
 
         RectTransform rt = go.GetComponent<RectTransform>();
-        rt.anchorMin = Vector2.zero;
-        rt.anchorMax = Vector2.one;
-        rt.offsetMin = offsetMin;
-        rt.offsetMax = offsetMax;
+        rt.anchorMin = new Vector2(0f, anchorYMin);
+        rt.anchorMax = new Vector2(1f, anchorYMax);
+        rt.offsetMin = new Vector2(inset, inset);
+        rt.offsetMax = new Vector2(-inset, -inset);
 
         return t;
     }
@@ -183,15 +183,9 @@ public class VillainProximityHUD : MonoBehaviour
         if (seals == _lastSeals) return;
         _lastSeals = seals;
 
-        if (seals > 0)
-        {
-            _sealsText.text  = $"◆  {seals} seal{(seals != 1 ? "s" : "")} active";
-            _sealsText.color = ColCyan;
-        }
-        else
-        {
-            _sealsText.text  = "◆  no seals active";
-            _sealsText.color = ColGrey;
-        }
+        _sealsText.text  = seals > 0
+            ? $"◆  {seals} seal{(seals != 1 ? "s" : "")} active"
+            : "◆  no seals active";
+        _sealsText.color = seals > 0 ? ColCyan : ColGrey;
     }
 }

@@ -71,8 +71,10 @@ public class UCSVillainChase : MonoBehaviour
     private float _lastRepathTime = -999f;
     private float _lastWarnTime = -999f;
     private const float WarnThrottle = 5f;
+    private bool _engagedInFight;
 
-    public List<Vector3> CurrentPath => _path;
+    public List<Vector3> CurrentPath    => _path;
+    public int           PathNodesRemaining => _path != null ? Mathf.Max(0, _path.Count - _pathIndex) : 0;
 
     private void Awake()
     {
@@ -117,6 +119,8 @@ public class UCSVillainChase : MonoBehaviour
         _attackTimer     -= Time.deltaTime;
         _roarTimer       -= Time.deltaTime;
         _closeSoundTimer -= Time.deltaTime;
+
+        if (_engagedInFight) { _navAgent.isStopped = true; return; }
 
         if (target == null || pathfinder == null)
         {
@@ -323,6 +327,21 @@ public class UCSVillainChase : MonoBehaviour
     public void SetIdle()    { _path.Clear(); _pathIndex = 0; _navAgent.isStopped = true; SetAnimatorSpeed(0f); }
     public void ResumeChase(){ _path.Clear(); _pathIndex = 0; }
     public void ForceRepath() => Repath();
+
+    public void EnterFight()
+    {
+        _engagedInFight = true;
+        _path.Clear();
+        _pathIndex = 0;
+        _navAgent.isStopped = true;
+        SetAnimatorSpeed(0f);
+    }
+
+    public void ExitFight()
+    {
+        _engagedInFight = false;
+        ResumeChase();
+    }
 
     public void OnPlayerSwordSwing()
     {

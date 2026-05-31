@@ -54,8 +54,7 @@ public class ChestInteractionUI : MonoBehaviour
 
         Text t    = textGO.AddComponent<Text>();
         Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        if (font == null) font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-        t.font      = font;
+        if (font != null) t.font = font;   // only override if found; never assign null
         t.fontSize  = 52;
         t.fontStyle = FontStyle.Bold;
         t.color     = new Color(0.38f, 0.93f, 1.0f, 1.0f);

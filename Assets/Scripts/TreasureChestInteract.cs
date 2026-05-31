@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -34,6 +35,9 @@ public class TreasureChestInteract : MonoBehaviour
     [SerializeField, HideInInspector] private Quaternion _micWorldRot;
     [SerializeField, HideInInspector] private Vector3    _micWorldScale;
     [SerializeField, HideInInspector] private bool       _micStateSaved;
+
+    // Fired once when RUMI successfully picks up the mic
+    public event Action OnMicPickedUp;
 
     private bool      _isOpen;
     private bool      _micPickedUp;
@@ -153,6 +157,8 @@ public class TreasureChestInteract : MonoBehaviour
 
         AttachMicToHand(rightHand);
         Debug.Log($"[TreasureChest] Mic attached to '{rightHand.name}'.", this);
+
+        OnMicPickedUp?.Invoke();
     }
 
     // Preserves the mic's current world size when reparenting to the hand bone,

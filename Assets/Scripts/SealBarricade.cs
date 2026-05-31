@@ -4,6 +4,8 @@ using UnityEngine.AI;
 
 public class SealBarricade : MonoBehaviour
 {
+    public static int ActiveCount { get; private set; }
+
     [SerializeField] private float   _duration       = 30f;
     [SerializeField] private float   _animationSpeed = 0.3f;
     [SerializeField] private Vector3 _wallSize       = new Vector3(3f, 3f, 0.5f);
@@ -16,6 +18,9 @@ public class SealBarricade : MonoBehaviour
     private UCSVillainChase  _villain;
     private AStarVillainChase _aStarVillain;
     private AStarGrid         _aStarGrid;
+
+    private void OnEnable()  => ActiveCount++;
+    private void OnDisable() => ActiveCount--;
 
     private void Start()
     {

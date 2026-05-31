@@ -311,7 +311,7 @@ public class UCSVillainChase : MonoBehaviour
             _audioSource.PlayOneShot(closeSound);
             _closeSoundTimer = closeSoundCooldown;
         }
-        if (dist > roarDistance && _roarTimer <= 0f && roarSound != null)
+        if (dist <= roarDistance && dist > closeSoundDistance && _roarTimer <= 0f && roarSound != null)
         {
             _audioSource.PlayOneShot(roarSound);
             _roarTimer = roarCooldown;

@@ -8,6 +8,12 @@ public class ZoeyFightSequence : MonoBehaviour
     [SerializeField] private AStarVillainChase _aStarVillain;
     [SerializeField] private UCSVillainChase _ucsVillain;
 
+    [Header("Fight Audio")]
+    [SerializeField] private AudioClip _fightMusic;
+    [SerializeField] [Range(0f, 1f)] private float _fightMusicVolume = 0.8f;
+
+    private AudioSource _audioSource;
+
     [Header("Fight Timing")]
     [SerializeField] private float _fightDuration = 8f;
     [SerializeField] private float _animSwitchInterval = 1.8f;
@@ -38,6 +44,13 @@ public class ZoeyFightSequence : MonoBehaviour
             _villainAnimator = _aStarVillain.GetComponentInChildren<Animator>();
         else if (_ucsVillain != null)
             _villainAnimator = _ucsVillain.GetComponentInChildren<Animator>();
+
+        _audioSource = GetComponent<AudioSource>();
+        if (_audioSource == null)
+            _audioSource = gameObject.AddComponent<AudioSource>();
+        _audioSource.loop = false;       // plays once for the clip's duration
+        _audioSource.playOnAwake = false;
+        _audioSource.spatialBlend = 0f;  // 2D — audible everywhere
     }
 
     private void Start()
@@ -84,6 +97,13 @@ public class ZoeyFightSequence : MonoBehaviour
         _aStarVillain?.EnterFight();
         _ucsVillain?.EnterFight();
 
+        if (_fightMusic != null)
+        {
+            _audioSource.clip = _fightMusic;
+            _audioSource.volume = _fightMusicVolume;
+            _audioSource.Play();
+        }
+
         Transform villainTransform = GetVillainTransform();
 
         float elapsed = 0f;
@@ -122,7 +142,9 @@ public class ZoeyFightSequence : MonoBehaviour
             yield return null;
         }
 
-        // Zoey loses — play death animation
+        // Fight over — fade out music then play death animation
+        _audioSource.Stop();
+
         if (_animator != null)
             _animator.CrossFade(_deathClip, 0.15f);
 

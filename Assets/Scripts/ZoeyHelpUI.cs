@@ -13,8 +13,8 @@ public class ZoeyHelpUI : MonoBehaviour
 
     [Header("Settings")]
     [SerializeField] private float _villainAlertRadius = 12f;
-    [SerializeField] private float _zoeySpawnDistance  = 2.5f;
-    [SerializeField] private string _promptMessage     = "[ H ]  Call Zoey to Fight!";
+    [SerializeField] private float _zoeySpawnDistance  = 3.0f;
+    [SerializeField] private string _promptMessage     = "✦  Press  [ H ]  to Call Zoey!  ✦";
 
     private Transform _player;
     private Transform _villainTransform;
@@ -69,25 +69,36 @@ public class ZoeyHelpUI : MonoBehaviour
 
         if (_zoeyPrefab != null)
         {
-            // Spawn Zoey 70% of the way between RUMI and the villain, facing the villain
+            // Spawn Zoey between RUMI and the villain, offset from the villain's side
+            // so she is close to the villain rather than crowding RUMI.
             Vector3 spawnPos;
             Quaternion spawnRot;
 
             if (_villainTransform != null)
             {
-                Vector3 toVillain = _villainTransform.position - _player.position;
-                spawnPos = _player.position + toVillain * 0.7f;
-                Vector3 faceDir = (_villainTransform.position - spawnPos);
-                faceDir.y = 0f;
-                spawnRot = faceDir.sqrMagnitude > 0.001f
-                    ? Quaternion.LookRotation(faceDir.normalized)
-                    : Quaternion.Euler(0, _player.eulerAngles.y, 0);
+                // Flat direction pointing from the villain toward RUMI
+                Vector3 toPlayer = _player.position - _villainTransform.position;
+                toPlayer.y = 0f;
+                Vector3 dir = toPlayer.sqrMagnitude > 0.01f ? toPlayer.normalized
+                                                             : Vector3.forward;
+
+                // Place Zoey in front of the villain (between them), facing the villain
+                spawnPos = _villainTransform.position + dir * _zoeySpawnDistance;
+                spawnRot = Quaternion.LookRotation(-dir); // -dir = toward villain
             }
             else
             {
-                spawnPos = _player.position + _player.forward * _zoeySpawnDistance;
+                // Fallback when no villain is found: spawn in front of RUMI
+                Vector3 forward2D = new Vector3(_player.forward.x, 0f, _player.forward.z).normalized;
+                spawnPos = _player.position + forward2D * _zoeySpawnDistance;
                 spawnRot = Quaternion.Euler(0, _player.eulerAngles.y, 0);
             }
+
+            spawnPos.y = _player.position.y;
+
+            // Raycast to find the actual ground level at the spawn point.
+            if (Physics.Raycast(spawnPos + Vector3.up * 10f, Vector3.down, out RaycastHit groundHit, 50f))
+                spawnPos.y = groundHit.point.y;
 
             GameObject instance = Instantiate(_zoeyPrefab, spawnPos, spawnRot);
             FixGlbRotation(instance.transform);

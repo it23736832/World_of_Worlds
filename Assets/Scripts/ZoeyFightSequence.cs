@@ -83,9 +83,25 @@ public class ZoeyFightSequence : MonoBehaviour
 
         yield return new WaitForSeconds(_deathAnimDuration);
 
-        // Freeze on the last frame of the death pose — don't disappear
+        // Freeze on the last frame of the death pose
         if (_animator != null)
             _animator.speed = 0f;
+
+        // Gradually lower Zoey to the ground over 0.5s so she doesn't float
+        float sinkDuration = 0.5f;
+        float sinkElapsed  = 0f;
+        Vector3 startPos  = transform.position;
+        Vector3 groundPos = startPos;
+        if (Physics.Raycast(startPos + Vector3.up * 3f, Vector3.down, out RaycastHit deathHit, 20f))
+            groundPos = deathHit.point;
+
+        while (sinkElapsed < sinkDuration)
+        {
+            transform.position = Vector3.Lerp(startPos, groundPos, sinkElapsed / sinkDuration);
+            sinkElapsed += Time.deltaTime;
+            yield return null;
+        }
+        transform.position = groundPos;
 
         IsDead = true;
         IsFightActive = false;

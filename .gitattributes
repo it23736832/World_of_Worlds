@@ -57,3 +57,4 @@
 *.asset merge=unityyamlmerge
 *.meta merge=unityyamlmerge
 Assets/player/Demonjinu01/animations/BountyPond_idle.anim filter=lfs diff=lfs merge=lfs -text
+*.glb filter=lfs diff=lfs merge=lfs -text

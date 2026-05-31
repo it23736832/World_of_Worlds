@@ -82,7 +82,7 @@ public class SealBarricade : MonoBehaviour
     // Rebuild the A* grid after 10 s so the altar villain sees the seal as an obstacle and reroutes
     private IEnumerator RebuildAStarAfterDelay()
     {
-        yield return new WaitForSeconds(10f);
+        yield return new WaitForSeconds(5f);
 
         if (_aStarGrid == null)
         {

@@ -343,6 +343,11 @@ public class UCSVillainChase : MonoBehaviour
         ResumeChase();
     }
 
+    public void MuteAudio()
+    {
+        if (_audioSource != null) { _audioSource.Stop(); _audioSource.mute = true; }
+    }
+
     public void OnPlayerSwordSwing()
     {
         if (animator == null) return;

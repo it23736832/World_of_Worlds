@@ -1,6 +1,9 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 public class WinSequenceManager : MonoBehaviour
 {
@@ -8,6 +11,18 @@ public class WinSequenceManager : MonoBehaviour
     [SerializeField] private float _fadeInDuration  = 0.6f;
     [SerializeField] private float _holdDuration    = 3.5f;
     [SerializeField] private float _fadeOutDuration = 0.6f;
+
+    [Header("Zoey Dance")]
+    [SerializeField] private GameObject                _zoeyPrefab;
+    [SerializeField] private RuntimeAnimatorController _danceController;
+    [SerializeField] private float                     _zoeySpawnOffset   = 4.5f;
+    [SerializeField] private float                     _minDanceDistance  = 3.0f;
+
+    [Header("Golden Song")]
+    [SerializeField] private AudioClip _goldenClip;
+    [SerializeField] [Range(0f,1f)] private float _goldenVolume = 1f;
+
+    private AudioSource _music;
 
     // ── internal UI ──────────────────────────────────────────────────────────
     private Canvas    _canvas;
@@ -18,11 +33,28 @@ public class WinSequenceManager : MonoBehaviour
 
     private void Start()
     {
+        // Auto-load assets if not assigned in Inspector
+#if UNITY_EDITOR
+        if (_zoeyPrefab == null)
+            _zoeyPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/NPC/ZoeyNPC.prefab");
+        if (_danceController == null)
+            _danceController = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(
+                "Assets/NPC/ZoeyDanceController.controller");
+#endif
+
         TreasureChestInteract chest = FindObjectOfType<TreasureChestInteract>();
         if (chest != null)
             chest.OnMicPickedUp += OnMicPickedUp;
         else
             Debug.LogWarning("[WinSequence] No TreasureChestInteract found in scene.", this);
+
+        Debug.Log("[WinSequence] Ready. Prefab=" + (_zoeyPrefab != null ? _zoeyPrefab.name : "NULL")
+                  + " Controller=" + (_danceController != null ? _danceController.name : "NULL"));
+
+        _music = gameObject.AddComponent<AudioSource>();
+        _music.loop         = false;
+        _music.playOnAwake  = false;
+        _music.spatialBlend = 0f; // 2D
 
         BuildWinUI();
     }
@@ -36,7 +68,14 @@ public class WinSequenceManager : MonoBehaviour
 
     private void OnMicPickedUp()
     {
+        SilenceVillain();
         StartCoroutine(WinSequenceCoroutine());
+    }
+
+    private void SilenceVillain()
+    {
+        FindAnyObjectByType<AStarVillainChase>()?.MuteAudio();
+        FindAnyObjectByType<UCSVillainChase>()?.MuteAudio();
     }
 
     private IEnumerator WinSequenceCoroutine()
@@ -44,14 +83,112 @@ public class WinSequenceManager : MonoBehaviour
         // ── Step 2: show the win message ─────────────────────────────────────
         yield return StartCoroutine(ShowWinMessage());
 
-        // ── Step 3 placeholder: spawn Zoey dancing ───────────────────────────
-        // SpawnZoeyDancing();
+        // ── Step 3: spawn Zoey dancing ───────────────────────────────────────
+        SpawnZoeyDancing();
 
-        // ── Step 4 placeholder: trigger RUMI's dance animation ───────────────
-        // TriggerRumiDance();
+        // ── Step 4: RUMI starts singing ──────────────────────────────────────
+        TriggerRumiSinging();
 
-        // ── Step 5 placeholder: play Golden audio ────────────────────────────
-        // PlayGoldenSong();
+        // ── Step 5: play Golden ──────────────────────────────────────────────
+        PlayGoldenSong();
+    }
+
+    // ── Zoey Dance Spawn ─────────────────────────────────────────────────────
+
+    private void SpawnZoeyDancing()
+    {
+        if (_zoeyPrefab == null)
+        {
+            Debug.LogWarning("[WinSequence] Zoey prefab is null — assign ZoeyNPC.prefab in Inspector.", this);
+            return;
+        }
+        Debug.Log("[WinSequence] Spawning Zoey for celebration dance.");
+
+        GameObject player = GameObject.FindWithTag("Player");
+        if (player == null) return;
+
+        // Spawn to RUMI's right side so they stand next to each other
+        Vector3 right2D = new Vector3(player.transform.right.x, 0f, player.transform.right.z).normalized;
+        Vector3 spawnPos = player.transform.position + right2D * _zoeySpawnOffset;
+        spawnPos.y = player.transform.position.y;
+
+        // Ground-snap: find actual terrain Y at the spawn XZ
+        if (Physics.Raycast(spawnPos + Vector3.up * 10f, Vector3.down, out RaycastHit hit, 50f))
+            spawnPos.y = hit.point.y;
+
+        // Face same direction as RUMI (side-by-side dance)
+        Quaternion spawnRot = Quaternion.Euler(0f, player.transform.eulerAngles.y, 0f);
+
+        GameObject zoey = Instantiate(_zoeyPrefab, spawnPos, spawnRot);
+
+        // Swap to the dance controller before the Animator evaluates its first frame
+        Animator anim = zoey.GetComponentInChildren<Animator>();
+        if (anim != null && _danceController != null)
+            anim.runtimeAnimatorController = _danceController;
+
+        // ZoeyFightSequence.Start() already handles the Humanoid foot-snap —
+        // do NOT run a second snap here or Zoey sinks 54 m underground.
+        Debug.Log("[WinSequence] Zoey instantiated — foot-snap handled by ZoeyFightSequence.");
+
+        // Keep Zoey from walking into RUMI while she dances
+        StartCoroutine(MaintainDanceDistance(zoey.transform, player.transform));
+    }
+
+    // ── RUMI Singing ─────────────────────────────────────────────────────────
+
+    private void TriggerRumiSinging()
+    {
+        GameObject player = GameObject.FindWithTag("Player");
+        if (player == null) return;
+
+        Animator anim = player.GetComponentInChildren<Animator>();
+        if (anim == null) { Debug.LogWarning("[WinSequence] RUMI Animator not found.", this); return; }
+
+        // Disable movement input so RUMI stays still while singing
+        ThirdPersonMovement mov = player.GetComponent<ThirdPersonMovement>();
+        if (mov != null) mov.enabled = false;
+
+        anim.CrossFade("Singing", 0.3f);
+        Debug.Log("[WinSequence] RUMI singing animation triggered.");
+    }
+
+    // ── Golden Song ──────────────────────────────────────────────────────────
+
+    private void PlayGoldenSong()
+    {
+        if (_goldenClip == null)
+        {
+            Debug.LogWarning("[WinSequence] Golden audio clip not assigned — drag it into the Inspector on WinSequenceManager.", this);
+            return;
+        }
+        _music.clip   = _goldenClip;
+        _music.volume = _goldenVolume;
+        _music.Play();
+        Debug.Log("[WinSequence] Golden is playing.");
+    }
+
+    // Runs every frame — pushes Zoey's root away on XZ only if she gets too close to RUMI.
+    // Y is never touched so the underground root (from the Humanoid foot-snap) stays correct.
+    private IEnumerator MaintainDanceDistance(Transform zoeyRoot, Transform playerRoot)
+    {
+        while (zoeyRoot != null && playerRoot != null)
+        {
+            Vector3 toZoey = zoeyRoot.position - playerRoot.position;
+            toZoey.y = 0f;
+            float dist = toZoey.magnitude;
+
+            if (dist < _minDanceDistance && dist > 0.001f)
+            {
+                Vector3 p      = zoeyRoot.position;
+                Vector3 offset = toZoey.normalized * _minDanceDistance;
+                p.x = playerRoot.position.x + offset.x;
+                p.z = playerRoot.position.z + offset.z;
+                // p.y intentionally unchanged
+                zoeyRoot.position = p;
+            }
+
+            yield return null;
+        }
     }
 
     // ── Win Message UI ───────────────────────────────────────────────────────

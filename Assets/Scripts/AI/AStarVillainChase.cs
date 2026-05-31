@@ -461,6 +461,11 @@ public class AStarVillainChase : MonoBehaviour
         ResumeChase();
     }
 
+    public void MuteAudio()
+    {
+        if (_audioSource != null) { _audioSource.Stop(); _audioSource.mute = true; }
+    }
+
     private void SetAnimatorSpeed(float speed)
     {
         if (animator == null || string.IsNullOrWhiteSpace(speedParam))

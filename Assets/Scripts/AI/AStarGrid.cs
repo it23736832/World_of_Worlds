@@ -17,6 +17,7 @@ public class AStarGrid : MonoBehaviour
     [SerializeField] private float obstacleCheckHeight = 1.8f;
     [SerializeField] private float groundOffset = 0.05f;
     [SerializeField] private float maxStepHeight = 0.4f;
+    [SerializeField] private float maxWalkableSlopeAngle = 45f;
 
     [Header("Debug")]
     [SerializeField] private bool drawGrid;
@@ -60,15 +61,20 @@ public class AStarGrid : MonoBehaviour
                     + Vector3.right * (x * _nodeDiameter + nodeRadius)
                     + Vector3.forward * (y * _nodeDiameter + nodeRadius);
 
-                bool hasGround = TryGetGroundPoint(samplePosition, out Vector3 groundPoint);
-                bool blocked = hasGround && Physics.CheckCapsule(
+                Vector3 origin = new Vector3(samplePosition.x, transform.position.y + scanHeight, samplePosition.z);
+                bool hasGround = Physics.Raycast(origin, Vector3.down, out RaycastHit groundHit, groundCheckDistance, groundMask, QueryTriggerInteraction.Ignore);
+                Vector3 groundPoint = hasGround ? groundHit.point + Vector3.up * groundOffset : samplePosition;
+
+                bool tooSteep = hasGround && Vector3.Angle(groundHit.normal, Vector3.up) > maxWalkableSlopeAngle;
+
+                bool blocked = hasGround && !tooSteep && Physics.CheckCapsule(
                     groundPoint + Vector3.up * nodeRadius,
                     groundPoint + Vector3.up * obstacleCheckHeight,
                     nodeRadius,
                     obstacleMask,
                     QueryTriggerInteraction.Ignore);
 
-                bool walkable = hasGround && !blocked;
+                bool walkable = hasGround && !tooSteep && !blocked;
                 if (walkable)
                 {
                     _walkableNodeCount++;

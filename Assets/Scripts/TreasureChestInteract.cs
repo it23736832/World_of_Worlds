@@ -23,12 +23,17 @@ public class TreasureChestInteract : MonoBehaviour
     [SerializeField] private string     pickupAnimTrigger = "PickupItem";
     [SerializeField] private Vector3    micHandPosition   = Vector3.zero;
     [SerializeField] private Vector3    micHandRotation   = Vector3.zero;
-    [SerializeField] private float      micHandScale      = 1f;
 
     // Serialized so they survive recompiles — set via "Capture Closed State" context menu
     [SerializeField, HideInInspector] private Quaternion _closedRot      = Quaternion.identity;
     [SerializeField, HideInInspector] private Quaternion _closedUpperRot = Quaternion.identity;
     [SerializeField, HideInInspector] private bool       _closedCaptured;
+
+    // Saved mic world state so "5. Return Mic To Chest" can restore it
+    [SerializeField, HideInInspector] private Vector3    _micWorldPos;
+    [SerializeField, HideInInspector] private Quaternion _micWorldRot;
+    [SerializeField, HideInInspector] private Vector3    _micWorldScale;
+    [SerializeField, HideInInspector] private bool       _micStateSaved;
 
     private bool      _isOpen;
     private bool      _micPickedUp;
@@ -37,12 +42,14 @@ public class TreasureChestInteract : MonoBehaviour
     private float     _currentUpperAngle;
     private Coroutine _lidRoutine;
 
+    private static readonly string[] _handBoneNames =
+        { "hand_r", "RightHand", "Hand_R", "Hand.R", "mixamorig:RightHand" };
+
     private void Awake()
     {
         if (!_closedCaptured)
         {
-            // Fallback: capture on first play if user forgot to run context menu
-            if (lidTransform != null) _closedRot = lidTransform.localRotation;
+            if (lidTransform      != null) _closedRot      = lidTransform.localRotation;
             if (upperCaseTransform != null) _closedUpperRot = upperCaseTransform.localRotation;
         }
 
@@ -120,7 +127,6 @@ public class TreasureChestInteract : MonoBehaviour
 
         Animator anim = player.GetComponentInChildren<Animator>();
 
-        // Play pickup animation if trigger name is set and exists in the controller
         if (anim != null && !string.IsNullOrWhiteSpace(pickupAnimTrigger))
         {
             bool triggerExists = false;
@@ -130,36 +136,36 @@ public class TreasureChestInteract : MonoBehaviour
             if (triggerExists)
                 anim.SetTrigger(pickupAnimTrigger);
             else
-                Debug.LogWarning($"[TreasureChest] Trigger '{pickupAnimTrigger}' not found in Rumi's Animator. Add it in the Animator Controller.", this);
+                Debug.LogWarning($"[TreasureChest] Trigger '{pickupAnimTrigger}' not found in Rumi's Animator.", this);
         }
 
         yield return new WaitForSeconds(0.4f);
 
-        // Hide sword
         SwordHolder sword = player.GetComponentInChildren<SwordHolder>();
         sword?.HideSword();
 
-        // Attach mic to right hand
         if (micInChest == null) { Debug.LogWarning("[TreasureChest] Mic In Chest not assigned!", this); yield break; }
 
         Transform rightHand = anim != null ? anim.GetBoneTransform(HumanBodyBones.RightHand) : null;
+        if (rightHand == null)
+            rightHand = FindBoneByName(player.transform, _handBoneNames);
         if (rightHand == null) { Debug.LogWarning("[TreasureChest] Right hand bone not found!", this); yield break; }
 
-        // Capture world scale before re-parenting so the bone's tiny scale doesn't shrink the mic
-        Vector3 worldScale = micInChest.transform.lossyScale;
+        AttachMicToHand(rightHand);
+        Debug.Log($"[TreasureChest] Mic attached to '{rightHand.name}'.", this);
+    }
 
-        micInChest.transform.SetParent(rightHand, false);
+    // Preserves the mic's current world size when reparenting to the hand bone,
+    // so RUMI's 10× root scale doesn't shrink or bloat the mic.
+    private void AttachMicToHand(Transform hand)
+    {
+        float micWorldSize  = micInChest.transform.lossyScale.x;
+        float handWorldSize = Mathf.Abs(hand.lossyScale.x) > 1e-6f ? hand.lossyScale.x : 1f;
+
+        micInChest.transform.SetParent(hand, false);
         micInChest.transform.localPosition = micHandPosition;
         micInChest.transform.localRotation = Quaternion.Euler(micHandRotation);
-
-        // Re-apply world scale relative to the new parent so the mic stays visible
-        Vector3 ps = rightHand.lossyScale;
-        micInChest.transform.localScale = new Vector3(
-            ps.x != 0 ? worldScale.x / ps.x : 1f,
-            ps.y != 0 ? worldScale.y / ps.y : 1f,
-            ps.z != 0 ? worldScale.z / ps.z : 1f) * micHandScale;
-
-        Debug.Log("[TreasureChest] Mic attached to Rumi's right hand.", this);
+        micInChest.transform.localScale    = Vector3.one * (micWorldSize / handWorldSize);
     }
 
     private void ApplyAngles()
@@ -174,8 +180,8 @@ public class TreasureChestInteract : MonoBehaviour
     [ContextMenu("1. Capture Closed State")]
     private void CaptureClosedState()
     {
-        if (lidTransform != null)        _closedRot      = lidTransform.localRotation;
-        if (upperCaseTransform != null)  _closedUpperRot = upperCaseTransform.localRotation;
+        if (lidTransform      != null) _closedRot      = lidTransform.localRotation;
+        if (upperCaseTransform != null) _closedUpperRot = upperCaseTransform.localRotation;
         _closedCaptured = true;
 #if UNITY_EDITOR
         UnityEditor.EditorUtility.SetDirty(this);
@@ -183,20 +189,33 @@ public class TreasureChestInteract : MonoBehaviour
         Debug.Log("[TreasureChest] Closed state captured.", this);
     }
 
-    // ── Step 2: adjust Open Angle values then click this to preview
     [ContextMenu("2. Preview Open")]
     private void PreviewOpen()
     {
         if (!_closedCaptured) { Debug.LogWarning("[TreasureChest] Run '1. Capture Closed State' first!", this); return; }
-        if (lidTransform != null)       lidTransform.localRotation       = _closedRot      * Quaternion.AngleAxis(openAngle,      Vector3.right);
+        if (lidTransform      != null) lidTransform.localRotation       = _closedRot      * Quaternion.AngleAxis(openAngle,      Vector3.right);
         if (upperCaseTransform != null) upperCaseTransform.localRotation = _closedUpperRot * Quaternion.AngleAxis(upperCaseAngle, Vector3.right);
 #if UNITY_EDITOR
         UnityEditor.EditorUtility.SetDirty(gameObject);
 #endif
     }
 
-    [ContextMenu("4. Preview Mic In Hand")]
-    private void PreviewMicInHand()
+    [ContextMenu("3. Preview Closed")]
+    private void PreviewClosed()
+    {
+        if (!_closedCaptured) { Debug.LogWarning("[TreasureChest] Run '1. Capture Closed State' first!", this); return; }
+        if (lidTransform      != null) lidTransform.localRotation       = _closedRot;
+        if (upperCaseTransform != null) upperCaseTransform.localRotation = _closedUpperRot;
+#if UNITY_EDITOR
+        UnityEditor.EditorUtility.SetDirty(gameObject);
+#endif
+    }
+
+    // ── Edit-mode preview: attaches mic to Rumi's right hand using the current
+    //    Mic Hand Position/Rotation values so you can see and adjust them live.
+    //    Run "5. Return Mic To Chest" to put it back.
+    [ContextMenu("4. Attach Mic To Hand (Edit Mode Preview)")]
+    private void AttachMicToHandPreview()
     {
         if (micInChest == null) { Debug.LogWarning("[TreasureChest] Mic In Chest not assigned!", this); return; }
 
@@ -204,62 +223,72 @@ public class TreasureChestInteract : MonoBehaviour
         if (player == null) { Debug.LogWarning("[TreasureChest] No Player tagged object found in scene.", this); return; }
 
         Animator anim = player.GetComponentInChildren<Animator>();
-        if (anim == null) { Debug.LogWarning("[TreasureChest] No Animator found on Player.", this); return; }
+        Transform rightHand = anim != null ? anim.GetBoneTransform(HumanBodyBones.RightHand) : null;
+        if (rightHand == null)
+            rightHand = FindBoneByName(player.transform, _handBoneNames);
+        if (rightHand == null) { Debug.LogWarning("[TreasureChest] Right hand bone not found on Player.", this); return; }
 
-        Transform rightHand = anim.GetBoneTransform(HumanBodyBones.RightHand);
-        if (rightHand == null) { Debug.LogWarning("[TreasureChest] Right hand bone not found.", this); return; }
+        // Save world state so "5. Return Mic To Chest" can restore it
+        _micWorldPos   = micInChest.transform.position;
+        _micWorldRot   = micInChest.transform.rotation;
+        _micWorldScale = micInChest.transform.localScale;
+        _micStateSaved = true;
 
-        // Store original parent/pos/rot/scale to restore later
-        _micOriginalParent   = micInChest.transform.parent;
-        _micOriginalPosition = micInChest.transform.localPosition;
-        _micOriginalRotation = micInChest.transform.localRotation;
-        _micOriginalScale    = micInChest.transform.localScale;
-
-        Vector3 worldScale = micInChest.transform.lossyScale;
-        micInChest.transform.SetParent(rightHand, false);
-        micInChest.transform.localPosition = micHandPosition;
-        micInChest.transform.localRotation = Quaternion.Euler(micHandRotation);
-        Vector3 ps = rightHand.lossyScale;
-        micInChest.transform.localScale = new Vector3(
-            ps.x != 0 ? worldScale.x / ps.x : 1f,
-            ps.y != 0 ? worldScale.y / ps.y : 1f,
-            ps.z != 0 ? worldScale.z / ps.z : 1f) * micHandScale;
+        AttachMicToHand(rightHand);
 
 #if UNITY_EDITOR
-        UnityEditor.EditorUtility.SetDirty(gameObject);
+        UnityEditor.EditorUtility.SetDirty(this);
+        UnityEditor.EditorUtility.SetDirty(micInChest);
 #endif
-        Debug.Log("[TreasureChest] Mic previewed in hand. Adjust Mic Hand Position/Rotation/Scale then run again.", this);
+        Debug.Log($"[TreasureChest] Mic attached to '{rightHand.name}'. " +
+                  "Tweak Mic Hand Position / Rotation in the Inspector, then run '5. Return Mic To Chest'.", this);
     }
 
     [ContextMenu("5. Return Mic To Chest")]
     private void ReturnMicToChest()
     {
         if (micInChest == null) return;
-        if (_micOriginalParent == null) { Debug.LogWarning("[TreasureChest] Run '4. Preview Mic In Hand' first.", this); return; }
+        if (!_micStateSaved) { Debug.LogWarning("[TreasureChest] Run '4. Attach Mic To Hand' first.", this); return; }
 
-        micInChest.transform.SetParent(_micOriginalParent, false);
-        micInChest.transform.localPosition = _micOriginalPosition;
-        micInChest.transform.localRotation = _micOriginalRotation;
-        micInChest.transform.localScale    = _micOriginalScale;
+        micInChest.transform.SetParent(null, true);
+        micInChest.transform.position   = _micWorldPos;
+        micInChest.transform.rotation   = _micWorldRot;
+        micInChest.transform.localScale = _micWorldScale;
+        _micStateSaved = false;
+
 #if UNITY_EDITOR
-        UnityEditor.EditorUtility.SetDirty(gameObject);
+        UnityEditor.EditorUtility.SetDirty(this);
+        UnityEditor.EditorUtility.SetDirty(micInChest);
 #endif
+        Debug.Log("[TreasureChest] Mic returned to chest position.", this);
     }
 
-    [SerializeField, HideInInspector] private Transform  _micOriginalParent;
-    [SerializeField, HideInInspector] private Vector3    _micOriginalPosition;
-    [SerializeField, HideInInspector] private Quaternion _micOriginalRotation;
-    [SerializeField, HideInInspector] private Vector3    _micOriginalScale;
-
-    [ContextMenu("3. Preview Closed")]
-    private void PreviewClosed()
+    [ContextMenu("0. Reset Mic Into Cabin (use if mic is lost)")]
+    private void ResetMicToCabin()
     {
-        if (!_closedCaptured) { Debug.LogWarning("[TreasureChest] Run '1. Capture Closed State' first!", this); return; }
-        if (lidTransform != null)       lidTransform.localRotation       = _closedRot;
-        if (upperCaseTransform != null) upperCaseTransform.localRotation = _closedUpperRot;
+        if (micInChest == null) { Debug.LogWarning("[TreasureChest] Mic In Chest not assigned!", this); return; }
+
+        Transform cabin = transform.parent;
+        micInChest.transform.SetParent(cabin, false);
+        micInChest.transform.localPosition = new Vector3(-0.249f, 0.784f, -1.005f);
+        micInChest.transform.localRotation = Quaternion.Euler(-88.68f, 195.82f, -105.74f);
+        micInChest.transform.localScale    = Vector3.one * 0.015f;
+        _micStateSaved = false;
+
 #if UNITY_EDITOR
-        UnityEditor.EditorUtility.SetDirty(gameObject);
+        UnityEditor.EditorUtility.SetDirty(this);
+        UnityEditor.EditorUtility.SetDirty(micInChest);
 #endif
+        Debug.Log("[TreasureChest] Mic reset into Cabin.", this);
+    }
+
+    private static Transform FindBoneByName(Transform root, string[] names)
+    {
+        foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
+            foreach (string n in names)
+                if (string.Equals(t.name, n, System.StringComparison.OrdinalIgnoreCase))
+                    return t;
+        return null;
     }
 
     private void OnDrawGizmosSelected()

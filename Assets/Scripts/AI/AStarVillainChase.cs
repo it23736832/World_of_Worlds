@@ -419,6 +419,8 @@ public class AStarVillainChase : MonoBehaviour
         StartCoroutine(ForceFieldKnockback(transform.position));
     }
 
+    public int PathNodesRemaining => _path != null ? Mathf.Max(0, _path.Count - _pathIndex) : 0;
+
     public void ForceRepath()
     {
         _repathTimer = 0f;

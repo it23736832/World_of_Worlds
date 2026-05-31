@@ -73,27 +73,21 @@ public class AStarPathfinder : MonoBehaviour
 
         grid.ResetPathData();
 
-        List<AStarNode> openSet = new List<AStarNode> { startNode };
+        // Min-heap open set: O(log n) push/pop vs the old O(n) linear scan
+        MinHeap openHeap = new MinHeap();
         HashSet<AStarNode> closedSet = new HashSet<AStarNode>();
 
         startNode.gCost = 0;
         startNode.hCost = GetDistance(startNode, targetNode);
         startNode.parent = null;
+        openHeap.Push(startNode);
 
-        while (openSet.Count > 0)
+        while (openHeap.Count > 0)
         {
-            AStarNode currentNode = openSet[0];
-            for (int i = 1; i < openSet.Count; i++)
-            {
-                AStarNode candidate = openSet[i];
-                if (candidate.FCost < currentNode.FCost ||
-                    candidate.FCost == currentNode.FCost && candidate.hCost < currentNode.hCost)
-                {
-                    currentNode = candidate;
-                }
-            }
+            AStarNode currentNode = openHeap.Pop();
 
-            openSet.Remove(currentNode);
+            // Lazy deletion: skip stale heap entries for nodes already finalised
+            if (closedSet.Contains(currentNode)) continue;
             closedSet.Add(currentNode);
 
             if (currentNode == targetNode)
@@ -110,16 +104,13 @@ public class AStarPathfinder : MonoBehaviour
                 }
 
                 int newCost = currentNode.gCost + GetDistance(currentNode, neighbour);
-                if (newCost < neighbour.gCost || !openSet.Contains(neighbour))
+                if (newCost < neighbour.gCost)
                 {
                     neighbour.gCost = newCost;
                     neighbour.hCost = GetDistance(neighbour, targetNode);
                     neighbour.parent = currentNode;
-
-                    if (!openSet.Contains(neighbour))
-                    {
-                        openSet.Add(neighbour);
-                    }
+                    // Push updated entry; the old (higher-cost) entry becomes stale and is skipped on pop
+                    openHeap.Push(neighbour);
                 }
             }
         }
@@ -154,5 +145,62 @@ public class AStarPathfinder : MonoBehaviour
         }
 
         return 14 * distanceX + 10 * (distanceY - distanceX);
+    }
+
+    // Binary min-heap sorted by FCost (then hCost as tiebreaker) — O(log n) push/pop
+    private class MinHeap
+    {
+        private readonly List<AStarNode> _data = new List<AStarNode>();
+        public int Count => _data.Count;
+
+        public void Push(AStarNode node)
+        {
+            _data.Add(node);
+            BubbleUp(_data.Count - 1);
+        }
+
+        public AStarNode Pop()
+        {
+            AStarNode result = _data[0];
+            int last = _data.Count - 1;
+            _data[0] = _data[last];
+            _data.RemoveAt(last);
+            if (_data.Count > 0) SiftDown(0);
+            return result;
+        }
+
+        private static bool HasPriority(AStarNode a, AStarNode b)
+        {
+            return a.FCost < b.FCost || (a.FCost == b.FCost && a.hCost < b.hCost);
+        }
+
+        private void BubbleUp(int i)
+        {
+            while (i > 0)
+            {
+                int parent = (i - 1) / 2;
+                if (HasPriority(_data[i], _data[parent]))
+                {
+                    AStarNode tmp = _data[i]; _data[i] = _data[parent]; _data[parent] = tmp;
+                    i = parent;
+                }
+                else break;
+            }
+        }
+
+        private void SiftDown(int i)
+        {
+            int n = _data.Count;
+            while (true)
+            {
+                int best = i;
+                int left = 2 * i + 1, right = 2 * i + 2;
+                if (left  < n && HasPriority(_data[left],  _data[best])) best = left;
+                if (right < n && HasPriority(_data[right], _data[best])) best = right;
+                if (best == i) break;
+                AStarNode tmp = _data[i]; _data[i] = _data[best]; _data[best] = tmp;
+                i = best;
+            }
+        }
     }
 }

@@ -291,6 +291,12 @@ public class TreasureChestInteract : MonoBehaviour
         return null;
     }
 
+    public void SetPromptUIObjects(GameObject openPrompt, GameObject pickupPrompt)
+    {
+        openPromptUI   = openPrompt;
+        pickupPromptUI = pickupPrompt;
+    }
+
     private void OnDrawGizmosSelected()
     {
         Gizmos.color = new Color(0f, 1f, 0f, 0.2f);

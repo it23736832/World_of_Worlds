@@ -16,10 +16,11 @@ public class SwordAttack : MonoBehaviour
 
     [Header("Barricade")]
     [SerializeField] private GameObject _barricadePrefab;
-    [SerializeField] private int        _maxBarricades   = 3;
-    [SerializeField] private float      _spawnScale      = 24f;
+    [SerializeField] private int        _maxBarricades     = 3;
+    [SerializeField] private float      _spawnScale        = 1.5f;
+    [SerializeField] private float      _spawnDistance     = 3f;
     [SerializeField] private float      _barricadeDuration = 30f;
-    [SerializeField] private LayerMask  _floorMask       = ~0;
+    [SerializeField] private LayerMask  _floorMask         = ~0;
 
     private Animator _animator;
     private int      _attackLayerIndex = -1;
@@ -147,12 +148,26 @@ public class SwordAttack : MonoBehaviour
             return;
         }
 
-        Vector3 spawnPos = transform.position + Vector3.up * 1f;
-        GameObject spawned = Instantiate(_barricadePrefab, spawnPos, Quaternion.identity);
+        // Spawn in front of RUMI on the ground surface
+        Vector3 forward2D = new Vector3(transform.forward.x, 0f, transform.forward.z).normalized;
+        Vector3 spawnPos  = transform.position + forward2D * _spawnDistance;
+
+        if (Physics.Raycast(spawnPos + Vector3.up * 20f, Vector3.down, out RaycastHit hit, 40f, _floorMask))
+            spawnPos.y = hit.point.y;
+        else
+            spawnPos.y = transform.position.y;
+
+        spawnPos.y += _spawnScale * 0.1f;    // slight lift so it doesn't clip the floor
+
+        Quaternion spawnRot = Quaternion.LookRotation(forward2D);
+        GameObject spawned  = Instantiate(_barricadePrefab, spawnPos, spawnRot);
         spawned.transform.localScale = Vector3.one * _spawnScale;
-        Destroy(spawned, _barricadeDuration);
+
+        if (_barricadeDuration > 0f)
+            Destroy(spawned, _barricadeDuration);
+
         _barricadesRemaining--;
-        Debug.Log($"[SwordAttack] Barricade spawned ({_barricadesRemaining} remaining, lasts {_barricadeDuration}s).", this);
+        Debug.Log($"[SwordAttack] Barricade spawned at {spawnPos} scale={_spawnScale} ({_barricadesRemaining} remaining).", this);
     }
 
     private static bool ReadAttackInput()

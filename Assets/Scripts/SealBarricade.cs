@@ -31,18 +31,25 @@ public class SealBarricade : MonoBehaviour
         _aStarVillain = FindObjectOfType<AStarVillainChase>();
         _aStarGrid    = FindObjectOfType<AStarGrid>();
 
+        // Size the collider from the actual mesh bounds so it always matches the visual
+        // regardless of what scale SwordAttack spawned us at.
+        MeshFilter mf = GetComponentInChildren<MeshFilter>();
+        Vector3 colliderSize = (mf != null && mf.sharedMesh != null)
+            ? mf.sharedMesh.bounds.size
+            : _wallSize;
+
         if (_obstacle != null)
         {
-            _obstacle.size                    = _wallSize;
+            _obstacle.size                    = colliderSize;
             _obstacle.carvingTimeToStationary = 0f;
             _obstacle.carving                 = true;
             _obstacle.enabled                 = true;
         }
 
         // Add a solid (non-trigger) BoxCollider so villains' CharacterControllers are physically blocked.
-        _solidWall        = gameObject.AddComponent<BoxCollider>();
+        _solidWall           = gameObject.AddComponent<BoxCollider>();
         _solidWall.isTrigger = false;
-        _solidWall.size   = _wallSize;
+        _solidWall.size      = colliderSize;
 
         // Let Rumi pass through — only Jinu should be physically blocked
         GameObject player = GameObject.FindWithTag("Player");

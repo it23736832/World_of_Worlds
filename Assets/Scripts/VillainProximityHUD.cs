@@ -16,6 +16,8 @@ public class VillainProximityHUD : MonoBehaviour
     private Text  _dataText;
     private Text  _sealsText;
     private Image _bg;
+    private GameObject _canvasGO;
+    private bool _desiredVisible = true;
 
     private float  _lastDist   = -1f;
     private int    _lastNodes  = -99;
@@ -43,9 +45,11 @@ public class VillainProximityHUD : MonoBehaviour
     {
         // Canvas
         GameObject canvasGO = new GameObject("VillainProximityCanvas");
+        _canvasGO = canvasGO;
         Canvas canvas = canvasGO.AddComponent<Canvas>();
         canvas.renderMode   = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 10;
+        canvasGO.SetActive(_desiredVisible);
         CanvasScaler scaler = canvasGO.AddComponent<CanvasScaler>();
         scaler.uiScaleMode         = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1280f, 720f);
@@ -67,6 +71,13 @@ public class VillainProximityHUD : MonoBehaviour
         _headerText = MakeRow(panelGO, "Header", 17, ColCyan, 2f / 3f, 1f, 4f);
         _dataText   = MakeRow(panelGO, "Data",   19, ColCyan, 1f / 3f, 2f / 3f, 4f);
         _sealsText  = MakeRow(panelGO, "Seals",  13, ColGrey, 0f,      1f / 3f, 4f);
+    }
+
+    public void SetVisible(bool visible)
+    {
+        _desiredVisible = visible;
+        if (_canvasGO != null)
+            _canvasGO.SetActive(visible);
     }
 
     // Creates a Text object that occupies a horizontal band between anchorYMin and anchorYMax,

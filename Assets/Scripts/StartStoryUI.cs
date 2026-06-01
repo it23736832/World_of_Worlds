@@ -25,6 +25,12 @@ public class StartStoryUI : MonoBehaviour
     [SerializeField] private float titleFadeDuration = 1.5f;
     [SerializeField] private float titleHoldDuration = 2.5f;
 
+    [Header("Intro Music")]
+    [SerializeField] private AudioClip introMusic;
+    [SerializeField] private float introMusicVolume = 1f;
+
+    private AudioSource _introAudioSource;
+
     [Header("Pause Jinu")]
     [SerializeField] private bool pauseVillainChase = true;
 
@@ -46,6 +52,15 @@ public class StartStoryUI : MonoBehaviour
         Cursor.visible = true;
 
         IsActive = true;
+
+        if (introMusic != null)
+        {
+            _introAudioSource = gameObject.AddComponent<AudioSource>();
+            _introAudioSource.clip = introMusic;
+            _introAudioSource.volume = introMusicVolume;
+            _introAudioSource.loop = true;
+            _introAudioSource.Play();
+        }
 
         if (pauseVillainChase)
         {
@@ -444,6 +459,12 @@ public class StartStoryUI : MonoBehaviour
     private void OnStartGame()
     {
         IsActive = false;
+
+        if (_introAudioSource != null)
+        {
+            _introAudioSource.Stop();
+            Destroy(_introAudioSource);
+        }
 
         if (pauseVillainChase)
         {

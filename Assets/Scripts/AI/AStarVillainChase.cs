@@ -74,7 +74,18 @@ public class AStarVillainChase : MonoBehaviour
     [SerializeField] private float stuckThreshold = 0.1f;
     [SerializeField] private float stuckDuration = 0.5f;
     [SerializeField] private float obstacleCheckDistance = 3f;
-    [SerializeField] private int maxJumpAttemptsPerWaypoint = 2;
+    [SerializeField] private int   maxJumpAttemptsPerWaypoint = 2;
+
+    [Header("Navigation Helpers")]
+    [Tooltip("CharacterController step height — increase for stairs / multi-floor asylum geometry")]
+    [SerializeField] private float _stepOffset = 0.8f;
+    [Tooltip("How often (seconds) to run the long-term stuck check")]
+    [SerializeField] private float _longTermStuckInterval  = 2f;
+    [Tooltip("Minimum distance villain must travel within the interval to not be considered stuck")]
+    [SerializeField] private float _longTermStuckThreshold = 0.4f;
+
+    private Vector3 _longTermStuckPos;
+    private float   _longTermStuckTimer;
 
     private void Awake()
     {
@@ -124,8 +135,13 @@ public class AStarVillainChase : MonoBehaviour
             }
         }
 
-        _lastTargetPosition = target != null ? target.position : transform.position;
-        _lastFramePosition = transform.position;
+        _lastTargetPosition  = target != null ? target.position : transform.position;
+        _lastFramePosition   = transform.position;
+        _longTermStuckPos    = transform.position;
+
+        if (_controller != null && _stepOffset > 0f)
+            _controller.stepOffset = _stepOffset;
+
         if (snapToClosestWalkableOnStart)
         {
             SnapToClosestWalkableNode();
@@ -182,10 +198,32 @@ public class AStarVillainChase : MonoBehaviour
             }
         }
 
-        if (!_isIdle)  // Only follow path if not idle
+        if (!_isIdle)
         {
             FollowPath(distanceToTarget);
         }
+
+        CheckLongTermStuck();
+    }
+
+    private void CheckLongTermStuck()
+    {
+        _longTermStuckTimer += Time.deltaTime;
+        if (_longTermStuckTimer < _longTermStuckInterval) return;
+
+        float moved = Vector3.Distance(transform.position, _longTermStuckPos);
+        if (moved < _longTermStuckThreshold && _path.Count > 0 && !_isIdle && !_engagedInFight)
+        {
+            if (logPathProblems)
+                Debug.Log("[AStarVillainChase] Long-term stuck — forcing repath.", this);
+            _path.Clear();
+            _pathIndex    = 0;
+            _repathTimer  = 0f;
+            Repath();
+        }
+
+        _longTermStuckPos   = transform.position;
+        _longTermStuckTimer = 0f;
     }
 
     private void PlaySoundByDistance(float distanceToTarget)

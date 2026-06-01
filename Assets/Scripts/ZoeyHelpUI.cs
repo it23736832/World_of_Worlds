@@ -14,6 +14,7 @@ public class ZoeyHelpUI : MonoBehaviour
     [Header("Settings")]
     [SerializeField] private float _villainAlertRadius = 12f;
     [SerializeField] private float _zoeySpawnDistance  = 3.0f;
+    [SerializeField] private float _zoeyScale          = 1f;
     [SerializeField] private string _promptMessage     = "✦  Press  [ H ]  to Call Zoey!  ✦";
 
     private Transform _player;
@@ -96,12 +97,31 @@ public class ZoeyHelpUI : MonoBehaviour
 
             spawnPos.y = _player.position.y;
 
-            // Raycast to find the actual ground level at the spawn point.
-            if (Physics.Raycast(spawnPos + Vector3.up * 10f, Vector3.down, out RaycastHit groundHit, 50f))
+            // Raycast from just above the player's feet so multi-floor buildings
+            // always land Zoey on the same floor the player is standing on.
+            Vector3 rayOrigin = new Vector3(spawnPos.x, _player.position.y + 1f, spawnPos.z);
+            if (Physics.Raycast(rayOrigin, Vector3.down, out RaycastHit groundHit, 6f))
                 spawnPos.y = groundHit.point.y;
 
             GameObject instance = Instantiate(_zoeyPrefab, spawnPos, spawnRot);
+            if (_zoeyScale > 0f && !Mathf.Approximately(_zoeyScale, 1f))
+                instance.transform.localScale = Vector3.one * _zoeyScale;
             FixGlbRotation(instance.transform);
+
+            // Snap feet to ground — pivot may not be at foot level, especially after scaling
+            Renderer[] renderers = instance.GetComponentsInChildren<Renderer>(true);
+            if (renderers.Length > 0)
+            {
+                Bounds b = renderers[0].bounds;
+                foreach (Renderer r in renderers) b.Encapsulate(r.bounds);
+                float feetToOrigin = instance.transform.position.y - b.min.y;
+                instance.transform.position = new Vector3(
+                    instance.transform.position.x,
+                    spawnPos.y + feetToOrigin,
+                    instance.transform.position.z
+                );
+            }
+
             fight = instance.GetComponent<ZoeyFightSequence>();
         }
         else

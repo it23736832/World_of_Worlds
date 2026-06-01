@@ -16,7 +16,7 @@ public class SwordAttack : MonoBehaviour
 
     [Header("Barricade")]
     [SerializeField] private GameObject _barricadePrefab;
-    [SerializeField] private int        _maxBarricades     = 3;
+    [SerializeField] private int        _maxBarricades     = 5;
     [SerializeField] private float      _spawnScale        = 1.5f;
     [SerializeField] private float      _spawnDistance     = 3f;
     [SerializeField] private float      _barricadeDuration = 30f;
@@ -79,6 +79,7 @@ public class SwordAttack : MonoBehaviour
     private void Update()
     {
         if (_animator == null || _slashing) return;
+        if (StartStoryUI.IsActive) return;
         if (ReadAttackInput())
         {
             Debug.Log("[SwordAttack] Attack input detected — starting slash");

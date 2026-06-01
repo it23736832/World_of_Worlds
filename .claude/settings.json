@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__unity-mcp__Unity_ManageGameObject",
+      "mcp__unity-mcp__Unity_RunCommand",
+      "Bash(git fetch *)",
+      "Bash(git reset *)",
+      "Bash(git clean *)",
+      "mcp__unity-mcp__Unity_ManageScene"
+    ]
+  }
+}

@@ -7,6 +7,8 @@ using UnityEngine.InputSystem.UI;
 
 public class StartStoryUI : MonoBehaviour
 {
+    public static bool IsActive { get; private set; } = false;
+
     [Header("Story")]
     [TextArea(3, 6)]
     [SerializeField] private string[] paragraphs =
@@ -37,6 +39,8 @@ public class StartStoryUI : MonoBehaviour
         // Unlock cursor for the story introduction so the user can see and click the Start button
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
+
+        IsActive = true;
 
         if (pauseVillainChase)
         {
@@ -369,6 +373,8 @@ public class StartStoryUI : MonoBehaviour
 
     private void OnStartGame()
     {
+        IsActive = false;
+
         if (pauseVillainChase)
         {
             ResumeChase();

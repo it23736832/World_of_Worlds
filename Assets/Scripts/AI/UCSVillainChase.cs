@@ -32,7 +32,6 @@ public class UCSVillainChase : MonoBehaviour
     [SerializeField] private string speedParam = "Speed";
     [SerializeField] private string attackTrigger = "Attack";
     [SerializeField] private string swipingTrigger = "Swiping";
-    [SerializeField] private string runToStopTrigger = "RunToStop";
     [SerializeField] private float animatorDampTime = 0.1f;
     [SerializeField] private float attackCooldown = 1.2f;
 
@@ -46,6 +45,10 @@ public class UCSVillainChase : MonoBehaviour
 
     [Header("Barricade Hit")]
     [SerializeField] private string hitBarricadeTrigger = "HitBarricade";
+
+    [Header("Sword Hit")]
+    [SerializeField] private string swordHitTrigger = "HitBarricade";
+    [SerializeField] private float swordStunDuration = 10f;
 
     [Header("Debug")]
     [SerializeField] private bool logPathProblems = true;
@@ -72,6 +75,7 @@ public class UCSVillainChase : MonoBehaviour
     private float _lastWarnTime = -999f;
     private const float WarnThrottle = 5f;
     private bool _engagedInFight;
+    private bool _stunned;
 
     public List<Vector3> CurrentPath    => _path;
     public int           PathNodesRemaining => _path != null ? Mathf.Max(0, _path.Count - _pathIndex) : 0;
@@ -120,7 +124,7 @@ public class UCSVillainChase : MonoBehaviour
         _roarTimer       -= Time.deltaTime;
         _closeSoundTimer -= Time.deltaTime;
 
-        if (_engagedInFight) { _navAgent.isStopped = true; return; }
+        if (_engagedInFight || _stunned) { _navAgent.isStopped = true; return; }
 
         if (target == null || pathfinder == null)
         {
@@ -356,11 +360,22 @@ public class UCSVillainChase : MonoBehaviour
 
     private IEnumerator SwordReaction()
     {
-        if (!string.IsNullOrWhiteSpace(runToStopTrigger) && HasAnimatorParam(runToStopTrigger))
-            animator.SetTrigger(runToStopTrigger);
-        yield return new WaitForSeconds(1f);
-        if (!string.IsNullOrWhiteSpace(swipingTrigger) && HasAnimatorParam(swipingTrigger))
-            animator.SetTrigger(swipingTrigger);
+        _stunned = true;
+        _path.Clear();
+        _pathIndex = 0;
+        _navAgent.isStopped = true;
+        SetAnimatorSpeed(0f);
+
+        if (!string.IsNullOrWhiteSpace(swordHitTrigger) && HasAnimatorParam(swordHitTrigger))
+            animator.SetTrigger(swordHitTrigger);
+
+        yield return new WaitForSeconds(swordStunDuration);
+
+        _stunned = false;
+        _path.Clear();
+        _pathIndex = 0;
+        _repathTimer = 0f;
+        _lastRepathTime = -999f;
     }
 
     private bool HasAnimatorParam(string paramName)

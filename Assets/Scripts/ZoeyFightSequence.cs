@@ -21,9 +21,13 @@ public class ZoeyFightSequence : MonoBehaviour
     [SerializeField] private float _minFightDistance = 2.5f;
 
     // State names must match exactly what you name the states in Zoey's Animator Controller
-    [Header("Animation State Names")]
+    [Header("Zoey Animation State Names")]
     [SerializeField] private string[] _fightClips = { "Fist Fight A", "Fist Fight B", "Kicking" };
     [SerializeField] private string _deathClip = "Standing React Death Backward";
+
+    [Header("Villain (Jinu) Animation State Names")]
+    [Tooltip("CrossFade state names from Jinu's Animator Controller — cycle during the fight")]
+    [SerializeField] private string[] _villainFightClips = { "Attack", "Swiping" };
 
     private Animator _villainAnimator;
 
@@ -162,7 +166,13 @@ public class ZoeyFightSequence : MonoBehaviour
         IsDead = true;
         IsFightActive = false;
 
-        // Villain wins — resume chasing RUMI
+        // Villain wins — reset his animator and resume chasing RUMI
+        if (_villainAnimator != null)
+        {
+            if (HasAnimatorParam(_villainAnimator, "Speed"))
+                _villainAnimator.SetFloat("Speed", 0f);
+            _villainAnimator.CrossFade("Idle", 0.3f);
+        }
         _aStarVillain?.ExitFight();
         _ucsVillain?.ExitFight();
     }
@@ -176,10 +186,21 @@ public class ZoeyFightSequence : MonoBehaviour
     private void PlayVillainFightReaction()
     {
         if (_villainAnimator == null) return;
-        string[] attacks = { "Attack", "Swiping" };
-        string pick = attacks[Random.Range(0, attacks.Length)];
-        if (HasAnimatorParam(_villainAnimator, pick))
-            _villainAnimator.SetTrigger(pick);
+
+        if (_villainFightClips != null && _villainFightClips.Length > 0)
+        {
+            // CrossFade keeps Jinu locked into the fighting state for the full interval
+            string clip = _villainFightClips[Random.Range(0, _villainFightClips.Length)];
+            _villainAnimator.CrossFade(clip, 0.2f);
+        }
+        else
+        {
+            // Fallback: trigger-based
+            string[] attacks = { "Attack", "Swiping" };
+            string pick = attacks[Random.Range(0, attacks.Length)];
+            if (HasAnimatorParam(_villainAnimator, pick))
+                _villainAnimator.SetTrigger(pick);
+        }
     }
 
     private Transform GetVillainTransform()

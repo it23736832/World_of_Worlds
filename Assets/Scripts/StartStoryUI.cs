@@ -20,6 +20,11 @@ public class StartStoryUI : MonoBehaviour
 
     [SerializeField] private float secondsPerParagraph = 6f;
 
+    [Header("Title Banner")]
+    [SerializeField] private Sprite titleBannerSprite;
+    [SerializeField] private float titleFadeDuration = 1.5f;
+    [SerializeField] private float titleHoldDuration = 2.5f;
+
     [Header("Pause Jinu")]
     [SerializeField] private bool pauseVillainChase = true;
 
@@ -47,7 +52,7 @@ public class StartStoryUI : MonoBehaviour
             PauseChase();
         }
 
-        StartCoroutine(StorySequence());
+        StartCoroutine(TitleThenStory());
     }
 
     private void Update()
@@ -184,6 +189,71 @@ public class StartStoryUI : MonoBehaviour
 
         _startButton = BuildStartButton(_buttonContainer.transform, font);
         _buttonContainer.SetActive(false);
+    }
+
+    private IEnumerator TitleThenStory()
+    {
+        if (titleBannerSprite != null)
+            yield return StartCoroutine(ShowTitleBanner());
+        yield return StartCoroutine(StorySequence());
+    }
+
+    private IEnumerator ShowTitleBanner()
+    {
+        GameObject bannerCanvasGO = new GameObject("TitleBannerCanvas");
+        Canvas bannerCanvas = bannerCanvasGO.AddComponent<Canvas>();
+        bannerCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        bannerCanvas.sortingOrder = 60;
+        bannerCanvasGO.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        bannerCanvasGO.AddComponent<GraphicRaycaster>();
+
+        GameObject bg = new GameObject("TitleBackground");
+        bg.transform.SetParent(bannerCanvasGO.transform, false);
+        Image bgImage = bg.AddComponent<Image>();
+        bgImage.color = Color.black;
+        RectTransform bgRT = bg.GetComponent<RectTransform>();
+        bgRT.anchorMin = Vector2.zero;
+        bgRT.anchorMax = Vector2.one;
+        bgRT.offsetMin = Vector2.zero;
+        bgRT.offsetMax = Vector2.zero;
+
+        GameObject bannerGO = new GameObject("TitleBanner");
+        bannerGO.transform.SetParent(bannerCanvasGO.transform, false);
+        Image bannerImage = bannerGO.AddComponent<Image>();
+        bannerImage.sprite = titleBannerSprite;
+        bannerImage.preserveAspect = true;
+        bannerImage.color = new Color(1f, 1f, 1f, 0f);
+        RectTransform rt = bannerGO.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.1f, 0.1f);
+        rt.anchorMax = new Vector2(0.9f, 0.9f);
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
+
+        // Fade in
+        float elapsed = 0f;
+        while (elapsed < titleFadeDuration)
+        {
+            elapsed += Time.deltaTime;
+            float a = Mathf.Clamp01(elapsed / titleFadeDuration);
+            bannerImage.color = new Color(1f, 1f, 1f, a);
+            yield return null;
+        }
+        bannerImage.color = new Color(1f, 1f, 1f, 1f);
+
+        yield return new WaitForSeconds(titleHoldDuration);
+
+        // Fade out
+        elapsed = 0f;
+        while (elapsed < titleFadeDuration)
+        {
+            elapsed += Time.deltaTime;
+            float a = 1f - Mathf.Clamp01(elapsed / titleFadeDuration);
+            bannerImage.color = new Color(1f, 1f, 1f, a);
+            bgImage.color = new Color(0f, 0f, 0f, a);
+            yield return null;
+        }
+
+        Destroy(bannerCanvasGO);
     }
 
     private IEnumerator StorySequence()
